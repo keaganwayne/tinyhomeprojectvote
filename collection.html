@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tiny Home Project — Collection</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Coiny&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,500,0,0" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cream: '#f8f3e7',
+            mint: '#9fe8d5',
+            teal: '#026a61',
+            tealDeep: '#014b45',
+            coral: '#f4b3a7',
+            coralDeep: '#a3453a',
+            butter: '#efe45b',
+            ink: '#2a2927',
+            sand: '#ece2cf',
+            fog: '#fffdf8',
+            sage: '#dcece6'
+          },
+          fontFamily: {
+            display: ['Coiny', 'cursive'],
+            body: ['Plus Jakarta Sans', 'sans-serif']
+          },
+          boxShadow: {
+            card: '0 26px 70px rgba(18, 48, 44, 0.14)',
+            soft: '0 14px 34px rgba(0,0,0,0.12)',
+            button: '0 14px 30px rgba(2, 106, 97, 0.28)',
+            chosen: '0 0 0 6px rgba(20, 185, 116, 0.18), 0 18px 40px rgba(16, 185, 129, 0.26)'
+          },
+          borderRadius: {
+            '4xl': '2rem',
+            '5xl': '2.75rem'
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    :root {
+      color-scheme: light;
+      --transition-swift: 220ms;
+      --transition-slow: 620ms;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background:
+        radial-gradient(circle at 18% 16%, rgba(239, 228, 91, 0.28), transparent 18%),
+        radial-gradient(circle at 84% 72%, rgba(244, 179, 167, 0.24), transparent 20%),
+        linear-gradient(90deg, rgba(159, 232, 213, 0.56) 0%, rgba(255, 247, 234, 0.9) 50%, rgba(244, 179, 167, 0.56) 100%);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .brand-title,
+    .groovy-title,
+    .button-title,
+    .score-title {
+      font-family: 'Coiny', cursive;
+      line-height: 0.96;
+      letter-spacing: 0.02em;
+    }
+
+    .groovy-shadow-green {
+      text-shadow: 0 6px 0 rgba(2, 106, 97, 0.16), 0 12px 24px rgba(2, 106, 97, 0.14);
+    }
+
+    .battle-shell::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 10% 12%, rgba(159, 232, 213, 0.28), transparent 24%),
+        radial-gradient(circle at 90% 86%, rgba(244, 179, 167, 0.20), transparent 22%);
+      pointer-events: none;
+    }
+
+    .battle-card {
+      position: relative;
+      transition: transform var(--transition-slow) cubic-bezier(.22,.61,.36,1), opacity var(--transition-slow) ease, box-shadow 260ms ease;
+      will-change: transform, opacity;
+    }
+
+    .battle-card.is-chosen {
+      box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.18), 0 22px 50px rgba(34, 197, 94, 0.22);
+    }
+
+    .battle-card.is-dimmed {
+      opacity: 0.72;
+      transform: scale(0.988);
+    }
+
+    .battle-stage.is-animating .battle-card.swipe-left {
+      transform: translateX(-125%) rotate(-8deg) scale(0.96);
+      opacity: 0;
+    }
+
+    .battle-stage.is-animating .battle-card.swipe-right {
+      transform: translateX(125%) rotate(8deg) scale(0.96);
+      opacity: 0;
+    }
+
+    .battle-card.enter-right {
+      transform: translateX(120%) scale(0.97);
+      opacity: 0;
+    }
+
+    .battle-card.enter-left {
+      transform: translateX(-120%) scale(0.97);
+      opacity: 0;
+    }
+
+    .battle-card.enter-reset {
+      transform: translateX(0) scale(1);
+      opacity: 1;
+    }
+
+    .vote-flash {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, rgba(34, 197, 94, 0.18), rgba(74, 222, 128, 0.24), rgba(34, 197, 94, 0.18));
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease;
+      z-index: 15;
+      filter: blur(2px);
+    }
+
+    .vote-flash.active {
+      opacity: 1;
+      animation: flashFade 700ms ease forwards;
+    }
+
+    @keyframes flashFade {
+      0% { opacity: 0; }
+      20% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    .scene {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, var(--sky-1) 0%, var(--sky-2) 62%, var(--ground-1) 62%, var(--ground-2) 100%);
+      isolation: isolate;
+    }
+
+    .scene::before,
+    .scene::after {
+      content: '';
+      position: absolute;
+      border-radius: 999px;
+      opacity: 0.94;
+    }
+
+    .scene::before {
+      width: 17%;
+      aspect-ratio: 1;
+      top: 10%;
+      right: 12%;
+      background: rgba(255, 236, 155, 0.92);
+      box-shadow: 0 0 0 12px rgba(255, 236, 155, 0.14);
+    }
+
+    .scene::after {
+      width: 28%;
+      height: 10%;
+      left: 10%;
+      top: 14%;
+      background: rgba(255,255,255,0.92);
+      box-shadow: 18px 8px 0 6px rgba(255,255,255,0.92), 54px 2px 0 2px rgba(255,255,255,0.86);
+    }
+
+    .scene .hill,
+    .scene .hill-two,
+    .scene .hill-three,
+    .scene .house,
+    .scene .roof,
+    .scene .window,
+    .scene .walkway,
+    .scene .tag,
+    .scene .tree,
+    .scene .tree::before,
+    .scene .tree::after {
+      position: absolute;
+    }
+
+    .scene .hill {
+      width: 52%;
+      height: 38%;
+      left: -4%;
+      bottom: 28%;
+      border-radius: 80% 80% 0 0;
+      background: var(--hill-1);
+    }
+
+    .scene .hill-two {
+      width: 46%;
+      height: 32%;
+      right: 6%;
+      bottom: 30%;
+      border-radius: 80% 80% 0 0;
+      background: var(--hill-2);
+    }
+
+    .scene .hill-three {
+      width: 100%;
+      height: 22%;
+      left: 0;
+      bottom: 0;
+      background: linear-gradient(180deg, var(--ground-1), var(--ground-2));
+    }
+
+    .scene .house {
+      width: 28%;
+      height: 24%;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 19%;
+      background: rgba(255,255,255,0.94);
+      border-radius: 0.9rem;
+      box-shadow: 0 10px 18px rgba(0,0,0,0.10);
+    }
+
+    .scene .roof {
+      width: 34%;
+      height: 12%;
+      left: 50%;
+      transform: translateX(-50%) rotate(-4deg);
+      bottom: 39%;
+      background: var(--roof);
+      clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+    }
+
+    .scene .window {
+      width: 7%;
+      aspect-ratio: 1;
+      bottom: 28%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(159, 232, 213, 0.9);
+      border-radius: 0.45rem;
+    }
+
+    .scene .walkway {
+      width: 22%;
+      height: 6%;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 13%;
+      background: rgba(245, 230, 204, 0.96);
+      border-radius: 999px;
+      opacity: 0.84;
+    }
+
+    .scene .tree {
+      width: 4%;
+      height: 18%;
+      left: 16%;
+      bottom: 16%;
+      background: #84563d;
+      border-radius: 999px;
+    }
+
+    .scene .tree::before {
+      content: '';
+      width: 220%;
+      aspect-ratio: 1;
+      left: -58%;
+      top: -62%;
+      background: var(--tree);
+      border-radius: 999px;
+    }
+
+    .scene .tree::after {
+      content: '';
+      width: 170%;
+      aspect-ratio: 1;
+      left: -34%;
+      top: -96%;
+      background: var(--tree-2);
+      border-radius: 999px;
+    }
+
+    .video-scene .cloud-run,
+    .video-scene .sun-bounce {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .video-scene .cloud-run::before,
+    .video-scene .cloud-run::after {
+      content: '';
+      position: absolute;
+      width: 16%;
+      height: 8%;
+      top: 16%;
+      background: rgba(255,255,255,0.9);
+      border-radius: 999px;
+      filter: drop-shadow(14px 6px 0 rgba(255,255,255,0.9));
+      animation: cloudFloat 13s linear infinite;
+    }
+
+    .video-scene .cloud-run::before { left: -18%; }
+    .video-scene .cloud-run::after { left: -48%; top: 24%; animation-duration: 15s; animation-delay: -6s; }
+
+    .video-scene .sun-bounce::before {
+      content: '';
+      position: absolute;
+      width: 16%;
+      aspect-ratio: 1;
+      top: 10%;
+      right: 12%;
+      border-radius: 999px;
+      background: rgba(255, 236, 155, 0.96);
+      animation: sunPulse 4.2s ease-in-out infinite;
+    }
+
+    @keyframes cloudFloat {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(820%); }
+    }
+
+    @keyframes sunPulse {
+      0%,100% { transform: scale(1) translateY(0); }
+      50% { transform: scale(1.08) translateY(-4px); }
+    }
+
+    .carousel-track {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      transition: transform 460ms cubic-bezier(.22,.61,.36,1);
+    }
+
+    .carousel-slide {
+      min-width: 100%;
+      height: 100%;
+    }
+
+    .carousel-arrow {
+      backdrop-filter: blur(7px);
+    }
+
+    .dot {
+      transition: transform 180ms ease, background-color 180ms ease, opacity 180ms ease;
+    }
+
+    .dot.is-active {
+      background-color: rgba(255,255,255,0.96);
+      transform: scale(1.2);
+      opacity: 1;
+    }
+
+    .severity-track {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(90deg, rgba(159, 232, 213, 0.9), rgba(238, 234, 212, 0.92), rgba(244, 179, 167, 0.94));
+    }
+
+    .severity-knob {
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      transition: left 400ms cubic-bezier(.22,.61,.36,1);
+    }
+
+    .severity-knob .core {
+      box-shadow: 0 0 0 4px rgba(255,255,255,0.72), 0 10px 20px rgba(2, 106, 97, 0.20);
+    }
+
+    .vs-pulse {
+      animation: vsPulse 620ms ease;
+    }
+
+    @keyframes vsPulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.12); }
+      100% { transform: scale(1); }
+    }
+
+    .completion-overlay {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: rgba(6, 43, 40, 0.38);
+      backdrop-filter: blur(12px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 240ms ease;
+      z-index: 50;
+    }
+
+    .completion-overlay.is-visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .nav-link.active {
+      color: #026a61;
+      border-bottom-color: rgba(2, 106, 97, 0.7);
+    }
+
+    @media (max-width: 1100px) {
+      .battle-stage-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .battle-card.enter-right,
+      .battle-card.enter-left,
+      .battle-stage.is-animating .battle-card.swipe-left,
+      .battle-stage.is-animating .battle-card.swipe-right {
+        transform: translateY(24px);
+      }
+    }
+  </style>
+</head>
+<body class="text-ink">
+  <div class="completion-overlay" id="completionOverlay">
+    <div class="mx-4 w-full max-w-xl rounded-5xl border border-white/65 bg-fog/95 px-8 py-10 text-center shadow-card">
+      <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-mint/70">
+        <span class="material-symbols-outlined text-5xl text-teal">verified</span>
+      </div>
+      <h2 class="groovy-title mt-6 text-4xl text-teal sm:text-5xl">Thank You</h2>
+      <p class="mx-auto mt-5 max-w-md text-lg font-semibold leading-8 text-ink/78">Thank you for your votes. You're done. We appreciate your time.</p>
+      <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+        <button id="completionLeaderboardButton" class="button-title rounded-full bg-teal px-8 py-4 text-lg text-white shadow-button transition hover:-translate-y-0.5 hover:bg-tealDeep">Leaderboard</button>
+      </div>
+    </div>
+  </div>
+
+  <main class="mx-auto max-w-[1680px] px-4 py-5 sm:px-6 lg:px-8">
+    <header class="flex flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-white/50 bg-fog/78 px-5 py-4 shadow-soft backdrop-blur-xl sm:px-7">
+      <div class="flex items-center gap-4">
+        <p class="brand-title text-2xl text-teal sm:text-3xl">Tiny Home Project</p>
+      </div>
+      <nav class="flex items-center gap-4 text-xs font-extrabold uppercase tracking-[0.24em] text-ink/55 sm:gap-6 sm:text-sm">
+        <a href="collection.html" class="nav-link active border-b-4 border-transparent pb-2">Collection</a>
+        <a href="leaderboard.html" class="nav-link border-b-4 border-transparent pb-2 transition hover:text-teal">Leaderboard</a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <div class="rounded-full border border-teal/12 bg-white/72 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.2em] text-teal" id="voterChip">Teacher</div>
+        <div class="rounded-full border border-coralDeep/10 bg-coral/28 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.2em] text-coralDeep" id="votesChip">0 / 25</div>
+      </div>
+    </header>
+
+    <section class="pt-8 sm:pt-10">
+      <div class="text-center">
+        <h1 class="groovy-title groovy-shadow-green text-5xl text-teal sm:text-6xl lg:text-7xl xl:text-8xl">Which House<br><span class="text-coralDeep">Rules?</span></h1>
+      </div>
+    </section>
+
+    <section class="battle-shell relative mt-8 overflow-hidden rounded-5xl px-2 py-2 sm:mt-10 sm:px-4 sm:py-5">
+      <div class="vote-flash" id="voteFlash"></div>
+      <div class="battle-stage relative z-10" id="battleStage">
+        <div class="battle-stage-grid grid grid-cols-[1fr_auto_1fr] items-center gap-5 xl:gap-8">
+          <article class="battle-card rounded-5xl border border-white/55 bg-fog/86 p-4 shadow-card backdrop-blur-xl sm:p-5" id="leftCard"></article>
+
+          <div class="flex items-center justify-center py-3">
+            <div id="vsBadge" class="score-title flex h-24 w-24 items-center justify-center rounded-full border-[8px] border-white bg-teal text-4xl text-white shadow-soft sm:h-28 sm:w-28 sm:text-5xl">VS</div>
+          </div>
+
+          <article class="battle-card rounded-5xl border border-white/55 bg-fog/86 p-4 shadow-card backdrop-blur-xl sm:p-5" id="rightCard"></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="mx-auto mt-8 max-w-3xl rounded-5xl border border-white/55 bg-fog/84 px-6 py-7 shadow-card backdrop-blur-xl sm:mt-10 sm:px-8">
+      <div class="text-center">
+        <p class="text-xs font-extrabold uppercase tracking-[0.34em] text-teal/80 sm:text-sm">Overall Vibe Severity</p>
+      </div>
+      <div class="mt-6">
+        <div class="severity-track relative h-8 rounded-full">
+          <div class="severity-knob" id="severityKnob" style="left: 50%;">
+            <div class="core flex h-12 w-12 items-center justify-center rounded-full bg-teal text-white">
+              <span class="material-symbols-outlined text-xl">swap_vert</span>
+            </div>
+          </div>
+        </div>
+        <div class="mt-4 flex items-center justify-between px-2 text-xs font-extrabold uppercase tracking-[0.22em] text-ink/45 sm:text-sm">
+          <span>Chill</span>
+          <span id="severityLabel" class="text-teal">Even</span>
+          <span>Gnarly</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const groups = [{"id": 61501, "groupId": 61501, "className": "61B", "animal": "Penguin", "members": ["Isabella", "Kimberley", "Charles", "Noah"]}, {"id": 61502, "groupId": 61502, "className": "61B", "animal": "Bear", "members": ["Jiaran", "Sindy", "Nora", "Iris"]}, {"id": 61503, "groupId": 61503, "className": "61B", "animal": "Rhino", "members": ["Jayden", "Simon", "Kelly", "Cerina"]}, {"id": 61504, "groupId": 61504, "className": "61B", "animal": "Kangaroo", "members": ["Annie", "Teresa", "Ripple", "Elena"]}, {"id": 61505, "groupId": 61505, "className": "61B", "animal": "Wolf", "members": ["Chloe", "Kerry", "Anka", "Suri"]}, {"id": 61506, "groupId": 61506, "className": "61B", "animal": "Hippo", "members": ["Timothy", "Catherine", "Austin"]}, {"id": 62501, "groupId": 62501, "className": "62B", "animal": "Owl", "members": ["Alex", "Derrick", "Johan"]}, {"id": 62502, "groupId": 62502, "className": "62B", "animal": "Dolphin", "members": ["Elsa", "Evelyn", "Owen", "Ling"]}, {"id": 62503, "groupId": 62503, "className": "62B", "animal": "Turtle", "members": ["William", "Daniel", "Austin"]}, {"id": 62504, "groupId": 62504, "className": "62B", "animal": "Fox", "members": ["Jerry", "Cleo", "Hans", "Ivan"]}, {"id": 62505, "groupId": 62505, "className": "62B", "animal": "Panda", "members": ["Anna", "Ela", "Jasmine", "Poppy"]}, {"id": 62506, "groupId": 62506, "className": "62B", "animal": "Giraffe", "members": ["Jeffery", "Max", "Jethro", "Veronica"]}, {"id": 63501, "groupId": 63501, "className": "63B", "animal": "Shark", "members": ["Jason", "Bryan", "Nina", "Noe"]}, {"id": 63502, "groupId": 63502, "className": "63B", "animal": "Koala", "members": ["Hope", "Ethan", "Matthew", "Remy"]}, {"id": 63503, "groupId": 63503, "className": "63B", "animal": "Falcon", "members": ["Kimi", "Ryan", "Quintas", "Selene"]}, {"id": 63504, "groupId": 63504, "className": "63B", "animal": "Tiger", "members": ["Hugh", "Angel", "Felix", "Jeremiah"]}, {"id": 63505, "groupId": 63505, "className": "63B", "animal": "Otter", "members": ["Lucy", "Lucas", "Nate", "Icey"]}, {"id": 63506, "groupId": 63506, "className": "63B", "animal": "Cheetah", "members": ["Luka", "Miranda", "Steven"]}, {"id": 63507, "groupId": 63507, "className": "63B", "animal": "Zebra", "members": ["Henry", "Charlotte", "David"]}, {"id": 64501, "groupId": 64501, "className": "64B", "animal": "Lion", "members": ["Angela", "Rio", "Ethan", "Calinda"]}, {"id": 64502, "groupId": 64502, "className": "64B", "animal": "Seal", "members": ["Yuling", "Hugo", "Glory", "William"]}, {"id": 64503, "groupId": 64503, "className": "64B", "animal": "Octopus", "members": ["Jcee", "Elizabeth", "Arthur", "Ryan"]}, {"id": 64504, "groupId": 64504, "className": "64B", "animal": "Eagle", "members": ["Oscar", "Jonathan", "Evelyn", "Alan"]}, {"id": 64505, "groupId": 64505, "className": "64B", "animal": "Leopard", "members": ["Tara", "Matthew", "Evan"]}, {"id": 64506, "groupId": 64506, "className": "64B", "animal": "Flamingo", "members": ["Nina", "Charles", "Austin"]}, {"id": 64507, "groupId": 64507, "className": "64B", "animal": "Elephant", "members": ["Jovin", "Jasper", "Ari"]}];
+
+    const themePresets = [
+      ['#8edfd0','#69bfc0','#7fd37f','#3f8c64','#ffffff','#1e9989','#4da14f','#2e7c43'],
+      ['#f2c9b9','#f6e4c8','#99d3b4','#6aa273','#fff8f3','#d9735a','#61a66f','#2d7b5f'],
+      ['#cadff4','#b4d6ee','#9fd9a7','#6faa74','#ffffff','#5f84c8','#4d9767','#2c6b4e'],
+      ['#e8d0f5','#f4d9c0','#8ed8d0','#4e9780','#fffef8','#915bd6','#53aa8d','#2f7a5b'],
+      ['#f8d89f','#f3efbf','#8ad7c8','#55a48a','#fff8ef','#d48a28','#4b9b77','#2b6f60'],
+      ['#bfdcc9','#e0ecd2','#98d4ef','#6198c4','#ffffff','#5b8e63','#458bb1','#2f6b73']
+    ];
+
+    const app = {
+      currentPair: null,
+      isAnimating: false,
+      pendingDirection: 'left',
+      carousel: {
+        left: { index: 0, manual: false },
+        right: { index: 0, manual: false }
+      },
+      voter: null,
+      ratings: null,
+      progress: null,
+      seenPairs: new Set()
+    };
+
+    const leftCard = document.getElementById('leftCard');
+    const rightCard = document.getElementById('rightCard');
+    const voteFlash = document.getElementById('voteFlash');
+    const battleStage = document.getElementById('battleStage');
+    const severityKnob = document.getElementById('severityKnob');
+    const severityLabel = document.getElementById('severityLabel');
+    const vsBadge = document.getElementById('vsBadge');
+    const votesChip = document.getElementById('votesChip');
+    const voterChip = document.getElementById('voterChip');
+    const completionOverlay = document.getElementById('completionOverlay');
+    const completionLeaderboardButton = document.getElementById('completionLeaderboardButton');
+
+    function safeParse(json, fallback) {
+      try {
+        return JSON.parse(json);
+      } catch (error) {
+        return fallback;
+      }
+    }
+
+    function loadVoter() {
+      const fallback = {
+        voterType: 'teacher',
+        voterId: 'demo-teacher',
+        displayName: 'Demo Teacher',
+        maxVotes: 25,
+        votesUsed: 0,
+        completed: false
+      };
+      const voter = safeParse(sessionStorage.getItem('thp_voter'), fallback) || fallback;
+      voter.maxVotes = Number(voter.maxVotes) || 25;
+      voter.votesUsed = Number(voter.votesUsed) || 0;
+      voter.completed = Boolean(voter.completed);
+      return voter;
+    }
+
+    function progressKey(voter) {
+      return `thp_vote_progress::${voter.voterType}::${voter.voterId}`;
+    }
+
+    function ratingsKey(voter) {
+      return `thp_rankings::${voter.voterType}`;
+    }
+
+    function initialRatings() {
+      const initial = {};
+      groups.forEach((group) => {
+        initial[group.groupId] = { rating: 1500, wins: 0, losses: 0, comparisons: 0 };
+      });
+      return initial;
+    }
+
+    function loadProgress(voter) {
+      const stored = safeParse(localStorage.getItem(progressKey(voter)), null);
+      if (stored && typeof stored === 'object') {
+        return {
+          votesUsed: Number(stored.votesUsed) || 0,
+          completed: Boolean(stored.completed),
+          maxVotes: Number(stored.maxVotes) || voter.maxVotes
+        };
+      }
+      return {
+        votesUsed: Number(voter.votesUsed) || 0,
+        completed: Boolean(voter.completed),
+        maxVotes: Number(voter.maxVotes) || 25
+      };
+    }
+
+    function persistProgress() {
+      localStorage.setItem(progressKey(app.voter), JSON.stringify(app.progress));
+      sessionStorage.setItem('thp_voter', JSON.stringify({
+        ...app.voter,
+        votesUsed: app.progress.votesUsed,
+        completed: app.progress.completed,
+        maxVotes: app.progress.maxVotes
+      }));
+      syncProgressUI();
+    }
+
+    function loadRatings(voter) {
+      return safeParse(localStorage.getItem(ratingsKey(voter)), initialRatings()) || initialRatings();
+    }
+
+    function persistRatings() {
+      localStorage.setItem(ratingsKey(app.voter), JSON.stringify(app.ratings));
+    }
+
+    function syncProgressUI() {
+      votesChip.textContent = `${app.progress.votesUsed} / ${app.progress.maxVotes}`;
+      voterChip.textContent = app.voter.voterType === 'student' ? 'Student' : 'Teacher';
+    }
+
+    function hashNumber(value) {
+      let hash = 0;
+      const string = String(value);
+      for (let i = 0; i < string.length; i += 1) hash = ((hash << 5) - hash) + string.charCodeAt(i);
+      return Math.abs(hash);
+    }
+
+    function themeForGroup(group, offset = 0) {
+      const preset = themePresets[(hashNumber(group.animal) + offset) % themePresets.length];
+      return {
+        sky1: preset[0], sky2: preset[1], hill1: preset[2], hill2: preset[3], house: preset[4], roof: preset[5], tree: preset[6], tree2: preset[7]
+      };
+    }
+
+    function styleVars(theme) {
+      return `--sky-1:${theme.sky1};--sky-2:${theme.sky2};--ground-1:${theme.hill1};--ground-2:${theme.hill2};--hill-1:${theme.hill1};--hill-2:${theme.hill2};--roof:${theme.roof};--tree:${theme.tree};--tree-2:${theme.tree2};`;
+    }
+
+    function sceneMarkup(group, offset = 0, isVideo = false) {
+      const theme = themeForGroup(group, offset);
+      return `
+        <div class="scene ${isVideo ? 'video-scene' : ''} h-full w-full" style="${styleVars(theme)}">
+          <div class="hill"></div>
+          <div class="hill-two"></div>
+          <div class="hill-three"></div>
+          <div class="roof"></div>
+          <div class="house"></div>
+          <div class="window"></div>
+          <div class="tree"></div>
+          <div class="walkway"></div>
+          ${isVideo ? '<div class="cloud-run"></div><div class="sun-bounce"></div>' : ''}
+        </div>`;
+    }
+
+    function cardMarkup(side, group) {
+      const sideKey = side.toLowerCase();
+      const carousel = app.carousel[sideKey];
+      const photoSlides = [0, 1, 2].map((offset) => `
+        <div class="carousel-slide">${sceneMarkup(group, offset + 1)}</div>
+      `).join('');
+
+      return `
+        <div class="space-y-4">
+          <div class="flex items-center justify-between gap-3">
+            <button class="vote-button button-title inline-flex items-center justify-center rounded-full bg-teal px-5 py-3 text-sm text-white shadow-button transition hover:-translate-y-0.5 hover:bg-tealDeep sm:px-6 sm:text-base" data-side="${sideKey}">
+              I Choose You
+            </button>
+            <div class="rounded-full bg-white/70 px-4 py-2 text-[11px] font-extrabold uppercase tracking-[0.22em] text-teal/78 sm:text-xs">House Matchup</div>
+          </div>
+
+          <div class="overflow-hidden rounded-[2rem] border border-white/75 bg-white shadow-soft">
+            <div class="relative aspect-video overflow-hidden bg-sage">
+              ${sceneMarkup(group, 0, true)}
+              <div class="absolute bottom-3 right-3 rounded-full bg-black/42 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-white/95 sm:text-[11px]">Loop · 0:15</div>
+            </div>
+            <div class="relative aspect-video overflow-hidden border-t border-white/70 bg-sand/35">
+              <div class="carousel-track" id="${sideKey}Track" style="transform: translateX(-${carousel.index * 100}%);">
+                ${photoSlides}
+              </div>
+              <button class="carousel-arrow absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/74 text-teal shadow-soft transition hover:scale-105" data-carousel="${sideKey}" data-dir="-1" aria-label="Previous photo">
+                <span class="material-symbols-outlined">chevron_left</span>
+              </button>
+              <button class="carousel-arrow absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/74 text-teal shadow-soft transition hover:scale-105" data-carousel="${sideKey}" data-dir="1" aria-label="Next photo">
+                <span class="material-symbols-outlined">chevron_right</span>
+              </button>
+              <div class="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2">
+                ${[0,1,2].map((idx) => `<button class="dot h-3 w-3 rounded-full bg-white/55 ${carousel.index === idx ? 'is-active' : ''}" data-dot-side="${sideKey}" data-dot-index="${idx}" aria-label="Go to photo ${idx + 1}"></button>`).join('')}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderPair(pair) {
+      leftCard.innerHTML = cardMarkup('Left', pair.left);
+      rightCard.innerHTML = cardMarkup('Right', pair.right);
+      bindCardEvents();
+      updateSeverity(pair.left, pair.right);
+    }
+
+    function expectedScore(ratingA, ratingB) {
+      return 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
+    }
+
+    function pairKey(a, b) {
+      return [a.groupId, b.groupId].sort((x, y) => x - y).join('::');
+    }
+
+    function choosePair() {
+      const available = groups.slice();
+      const anchor = available[Math.floor(Math.random() * available.length)];
+      const anchorRating = app.ratings[anchor.groupId].rating;
+      const candidates = available
+        .filter((group) => group.groupId !== anchor.groupId)
+        .map((group) => ({ group, diff: Math.abs(app.ratings[group.groupId].rating - anchorRating), seen: app.seenPairs.has(pairKey(anchor, group)) }))
+        .sort((a, b) => a.diff - b.diff);
+
+      let band;
+      const roll = Math.random();
+      if (roll < 0.7) band = candidates.slice(0, 6);
+      else if (roll < 0.9) band = candidates.slice(6, 14);
+      else band = candidates.slice(14);
+      if (!band.length) band = candidates;
+
+      const unplayed = band.filter((item) => !item.seen);
+      const pickPool = unplayed.length ? unplayed : band;
+      const rival = pickPool[Math.floor(Math.random() * pickPool.length)].group;
+      app.seenPairs.add(pairKey(anchor, rival));
+
+      const leftFirst = Math.random() > 0.5;
+      return leftFirst ? { left: anchor, right: rival } : { left: rival, right: anchor };
+    }
+
+    function severityMeta(left, right) {
+      const leftRating = app.ratings[left.groupId].rating;
+      const rightRating = app.ratings[right.groupId].rating;
+      const expectancy = expectedScore(leftRating, rightRating);
+      const severity = Math.round(100 * 2 * Math.abs(expectancy - 0.5));
+      let label = 'Even';
+      if (severity >= 75) label = 'Ferocious';
+      else if (severity >= 50) label = 'Charged';
+      else if (severity >= 25) label = 'Spicy';
+      return { severity, label };
+    }
+
+    function updateSeverity(left, right) {
+      const { severity, label } = severityMeta(left, right);
+      severityKnob.style.left = `${severity}%`;
+      severityLabel.textContent = label;
+    }
+
+    function moveCarousel(side, direction, manual = false) {
+      const state = app.carousel[side];
+      if (manual) state.manual = true;
+      state.index = (state.index + direction + 3) % 3;
+      const track = document.getElementById(`${side}Track`);
+      if (track) track.style.transform = `translateX(-${state.index * 100}%)`;
+      document.querySelectorAll(`[data-dot-side="${side}"]`).forEach((dot, idx) => {
+        dot.classList.toggle('is-active', idx === state.index);
+      });
+    }
+
+    function setCarousel(side, index) {
+      const state = app.carousel[side];
+      state.manual = true;
+      state.index = index;
+      const track = document.getElementById(`${side}Track`);
+      if (track) track.style.transform = `translateX(-${state.index * 100}%)`;
+      document.querySelectorAll(`[data-dot-side="${side}"]`).forEach((dot, idx) => {
+        dot.classList.toggle('is-active', idx === state.index);
+      });
+    }
+
+    function bindCardEvents() {
+      document.querySelectorAll('.vote-button').forEach((button) => {
+        button.addEventListener('click', () => castVote(button.dataset.side));
+      });
+
+      document.querySelectorAll('[data-carousel]').forEach((button) => {
+        button.addEventListener('click', () => moveCarousel(button.dataset.carousel, Number(button.dataset.dir), true));
+      });
+
+      document.querySelectorAll('[data-dot-side]').forEach((button) => {
+        button.addEventListener('click', () => setCarousel(button.dataset.dotSide, Number(button.dataset.dotIndex)));
+      });
+    }
+
+    function updateRatings(winnerGroup, loserGroup) {
+      const winner = app.ratings[winnerGroup.groupId];
+      const loser = app.ratings[loserGroup.groupId];
+      const expectedWinner = expectedScore(winner.rating, loser.rating);
+      const expectedLoser = expectedScore(loser.rating, winner.rating);
+      const kBase = 20;
+      const uncertainty = 1 + 0.6 / Math.sqrt(Math.min(winner.comparisons, loser.comparisons) + 1);
+      const severityFactor = 1 + 0.35 * (2 * Math.abs(expectedWinner - 0.5));
+      const delta = kBase * uncertainty * severityFactor * (1 - expectedWinner);
+
+      winner.rating = Math.round((winner.rating + delta) * 10) / 10;
+      loser.rating = Math.round((loser.rating - delta) * 10) / 10;
+      winner.wins += 1;
+      loser.losses += 1;
+      winner.comparisons += 1;
+      loser.comparisons += 1;
+      persistRatings();
+    }
+
+    function animateIntoView(direction) {
+      const incomingClass = direction === 'left' ? 'enter-right' : 'enter-left';
+      leftCard.classList.remove('swipe-left', 'swipe-right', 'is-chosen', 'is-dimmed');
+      rightCard.classList.remove('swipe-left', 'swipe-right', 'is-chosen', 'is-dimmed');
+      leftCard.classList.add(incomingClass);
+      rightCard.classList.add(incomingClass);
+
+      requestAnimationFrame(() => {
+        leftCard.classList.add('enter-reset');
+        rightCard.classList.add('enter-reset');
+        leftCard.classList.remove(incomingClass);
+        rightCard.classList.remove(incomingClass);
+        setTimeout(() => {
+          leftCard.classList.remove('enter-reset');
+          rightCard.classList.remove('enter-reset');
+          app.isAnimating = false;
+        }, 440);
+      });
+    }
+
+    function castVote(side) {
+      if (app.isAnimating || app.progress.completed) return;
+
+      const winnerGroup = side === 'left' ? app.currentPair.left : app.currentPair.right;
+      const loserGroup = side === 'left' ? app.currentPair.right : app.currentPair.left;
+      const swipeClass = side === 'left' ? 'swipe-left' : 'swipe-right';
+
+      app.isAnimating = true;
+      vsBadge.classList.add('vs-pulse');
+      setTimeout(() => vsBadge.classList.remove('vs-pulse'), 620);
+
+      voteFlash.classList.remove('active');
+      void voteFlash.offsetWidth;
+      voteFlash.classList.add('active');
+
+      if (side === 'left') {
+        leftCard.classList.add('is-chosen');
+        rightCard.classList.add('is-dimmed');
+      } else {
+        rightCard.classList.add('is-chosen');
+        leftCard.classList.add('is-dimmed');
+      }
+
+      battleStage.classList.add('is-animating');
+      leftCard.classList.add(swipeClass);
+      rightCard.classList.add(swipeClass);
+
+      updateRatings(winnerGroup, loserGroup);
+      app.progress.votesUsed += 1;
+      app.progress.completed = app.progress.votesUsed >= app.progress.maxVotes;
+      persistProgress();
+
+      setTimeout(() => {
+        battleStage.classList.remove('is-animating');
+        app.carousel.left = { index: 0, manual: false };
+        app.carousel.right = { index: 0, manual: false };
+
+        if (app.progress.completed) {
+          completionOverlay.classList.add('is-visible');
+          app.isAnimating = false;
+          return;
+        }
+
+        app.currentPair = choosePair();
+        renderPair(app.currentPair);
+        animateIntoView(side);
+      }, 620);
+    }
+
+    function tickAutoCarousel() {
+      if (app.isAnimating || app.progress.completed) return;
+      ['left', 'right'].forEach((side) => {
+        if (!app.carousel[side].manual) moveCarousel(side, 1, false);
+      });
+    }
+
+    function init() {
+      app.voter = loadVoter();
+      app.progress = loadProgress(app.voter);
+      app.ratings = loadRatings(app.voter);
+      syncProgressUI();
+      if (app.progress.completed || app.progress.votesUsed >= app.progress.maxVotes) {
+        app.progress.completed = true;
+        persistProgress();
+        completionOverlay.classList.add('is-visible');
+        return;
+      }
+      app.currentPair = choosePair();
+      renderPair(app.currentPair);
+    }
+
+    completionLeaderboardButton.addEventListener('click', () => {
+      window.location.href = 'leaderboard.html';
+    });
+
+    setInterval(tickAutoCarousel, 3600);
+    init();
+  </script>
+</body>
+</html>
