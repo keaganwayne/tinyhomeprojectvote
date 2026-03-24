@@ -526,7 +526,8 @@
       mediaPromises: {},
       nextPair: null,
       nextPairReady: false,
-      preloadPromise: null
+      preloadPromise: null,
+      topDownOpen: { left: false, right: false }
     };
 
     const leftCard = document.getElementById('leftCard');
@@ -546,7 +547,7 @@
     const playableGroups = groups.filter(group => AVAILABLE_GROUP_IDS.has(group.groupId));
     const STORAGE_PUBLIC_BASE = 'https://trtwmxdtedqltjvzqdvu.supabase.co/storage/v1/object/public/thp-media';
     const MAX_IMAGE_SCAN = 20;
-    const LOOP_BADGE_TEXT = 'Loop · 0:15';
+    const TOP_DOWN_FILENAMES = ['top-down.jpg', 'top-down.jpeg', 'top-down.png', 'top-down.webp'];
 
 
     function safeParse(json, fallback) {
@@ -689,6 +690,10 @@
       return publicMediaUrl(`${groupFolder(group)}/images/${String(index).padStart(2, '0')}.jpg`);
     }
 
+    function buildTopDownUrl(group, filename) {
+      return publicMediaUrl(`${groupFolder(group)}/${filename}`);
+    }
+
     async function resourceExists(url) {
   try {
     const response = await fetch(url, {
@@ -709,7 +714,8 @@
         const media = {
           folder: groupFolder(group),
           videoUrl: null,
-          images: []
+          images: [],
+          topDownUrl: null
         };
 
         const videoUrl = buildVideoUrl(group);
@@ -722,6 +728,14 @@
           const exists = await resourceExists(imageUrl);
           if (!exists) break;
           media.images.push(imageUrl);
+        }
+
+        for (const filename of TOP_DOWN_FILENAMES) {
+          const topDownUrl = buildTopDownUrl(group, filename);
+          if (await resourceExists(topDownUrl)) {
+            media.topDownUrl = topDownUrl;
+            break;
+          }
         }
 
         app.mediaCache[group.groupId] = media;
@@ -785,6 +799,7 @@
       const tasks = [];
       if (media.videoUrl) tasks.push(preloadVideo(media.videoUrl));
       media.images.forEach((imageUrl) => tasks.push(preloadImage(imageUrl)));
+      if (media.topDownUrl) tasks.push(preloadImage(media.topDownUrl));
       await Promise.allSettled(tasks);
       return media;
     }
@@ -835,7 +850,6 @@
             preload="auto"
           ></video>
           <div class="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/10 via-transparent to-transparent"></div>
-          <div class="absolute bottom-3 right-3 rounded-full bg-black/42 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-white/95 sm:text-[11px]">${LOOP_BADGE_TEXT}</div>
         `;
       }
 
@@ -853,39 +867,80 @@
       const media = mediaStateFor(group);
       const totalSlides = Math.max(media.images.length, 1);
       const currentIndex = Math.min(carousel.index, totalSlides - 1);
-      const photoSlides = media.images.length
-        ? media.images.map((imageUrl, idx) => `
-            <div class="carousel-slide">
-              <img
-                src="${escapeHtml(imageUrl)}"
-                alt=""
-                class="h-full w-full object-cover"
-                loading="${idx === 0 ? 'eager' : 'lazy'}"
-                decoding="async"
-              />
-            </div>
-          `).join('')
-        : fallbackSlidesMarkup(group);
+      const topDownOpen = Boolean(app.topDownOpen[sideKey]);
+      const baseSlides = media.images.length
+        ? media.images.map((imageUrl, idx) => ({
+            key: `slide-${idx}`,
+            imageUrl,
+            idx,
+            isFallback: false
+          }))
+        : [{
+            key: 'fallback-0',
+            imageUrl: null,
+            idx: 0,
+            isFallback: true
+          }];
+
+      const renderSlide = (slide, eager = false) => {
+        if (slide.isFallback) {
+          return `<div class="carousel-slide">${sceneMarkup(group, 1)}</div>`;
+        }
+        return `
+          <div class="carousel-slide">
+            <img
+              src="${escapeHtml(slide.imageUrl)}"
+              alt=""
+              class="h-full w-full object-cover"
+              loading="${eager ? 'eager' : 'lazy'}"
+              decoding="async"
+            />
+          </div>
+        `;
+      };
+
+      const displaySlides = totalSlides > 1
+        ? [baseSlides[totalSlides - 1], ...baseSlides, baseSlides[0]]
+        : baseSlides;
+      const displayIndex = totalSlides > 1 ? currentIndex + 1 : currentIndex;
+
+      const photoSlides = displaySlides.map((slide, displayIdx) => renderSlide(slide, displayIdx <= 1)).join('');
 
       const dotsMarkup = Array.from({ length: totalSlides }, (_, idx) => `
         <button class="dot h-3 w-3 rounded-full bg-white/55 ${currentIndex === idx ? 'is-active' : ''}" data-dot-side="${sideKey}" data-dot-index="${idx}" aria-label="Go to photo ${idx + 1}"></button>
       `).join('');
 
+      const topDownButton = media.topDownUrl
+        ? `<button class="topdown-toggle absolute right-0 top-1/2 -translate-y-1/2 inline-flex items-center justify-center rounded-full bg-white/78 px-4 py-2 text-[11px] font-extrabold uppercase tracking-[0.18em] text-teal shadow-soft transition hover:-translate-y-[55%] hover:bg-white sm:text-xs" data-topdown-toggle="${sideKey}">Top-Down</button>`
+        : `<button class="absolute right-0 top-1/2 -translate-y-1/2 inline-flex items-center justify-center rounded-full bg-white/48 px-4 py-2 text-[11px] font-extrabold uppercase tracking-[0.18em] text-teal/45 shadow-soft pointer-events-none sm:text-xs">Top-Down</button>`;
+
+      const topDownOverlay = media.topDownUrl
+        ? `
+          <div class="topdown-overlay absolute inset-0 z-20 ${topDownOpen ? '' : 'hidden'}" data-topdown-overlay="${sideKey}">
+            <div class="absolute inset-0 bg-ink/72 backdrop-blur-[2px]"></div>
+            <div class="relative flex h-full w-full flex-col items-center justify-center gap-4 p-4 sm:p-5">
+              <img src="${escapeHtml(media.topDownUrl)}" alt="Top down view" class="max-h-full max-w-full rounded-[1.5rem] border border-white/70 bg-white object-contain shadow-soft" loading="lazy" decoding="async" />
+              <button class="topdown-close inline-flex items-center justify-center rounded-full bg-white/88 px-5 py-2 text-[11px] font-extrabold uppercase tracking-[0.18em] text-teal shadow-soft transition hover:bg-white sm:text-xs" data-topdown-close="${sideKey}">× Close</button>
+            </div>
+          </div>
+        `
+        : '';
+
       return `
         <div class="space-y-4">
-          <div class="flex items-center justify-between gap-3">
+          <div class="relative flex items-center justify-center gap-3 min-h-[3.5rem]">
             <button class="vote-button button-title inline-flex items-center justify-center rounded-full bg-teal px-5 py-3 text-sm text-white shadow-button transition hover:-translate-y-0.5 hover:bg-tealDeep sm:px-6 sm:text-base" data-side="${sideKey}">
-              I Choose You
+              I Choose This House
             </button>
-            <div class="rounded-full bg-white/70 px-4 py-2 text-[11px] font-extrabold uppercase tracking-[0.22em] text-teal/78 sm:text-xs">House Matchup</div>
+            ${topDownButton}
           </div>
 
-          <div class="overflow-hidden rounded-[2rem] border border-white/75 bg-white shadow-soft">
+          <div class="relative overflow-hidden rounded-[2rem] border border-white/75 bg-white shadow-soft">
             <div class="relative aspect-video overflow-hidden bg-sage">
               ${videoPanelMarkup(group, media)}
             </div>
             <div class="relative aspect-video overflow-hidden border-t border-white/70 bg-sand/35">
-              <div class="carousel-track" id="${sideKey}Track" style="transform: translateX(-${currentIndex * 100}%);">
+              <div class="carousel-track" id="${sideKey}Track" data-carousel-total="${totalSlides}" style="transform: translateX(-${displayIndex * 100}%);">
                 ${photoSlides}
               </div>
               <button class="carousel-arrow absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/74 text-teal shadow-soft transition hover:scale-105 ${totalSlides <= 1 ? 'opacity-40 pointer-events-none' : ''}" data-carousel="${sideKey}" data-dir="-1" aria-label="Previous photo">
@@ -898,6 +953,7 @@
                 ${dotsMarkup}
               </div>
             </div>
+            ${topDownOverlay}
           </div>
         </div>
       `;
@@ -911,6 +967,8 @@
       }
       updateSeverity(pair.left, pair.right);
       await hydratePair(pair);
+      app.topDownOpen.left = false;
+      app.topDownOpen.right = false;
       app.carousel.left.total = Math.max(mediaStateFor(pair.left).images.length, 1);
       app.carousel.right.total = Math.max(mediaStateFor(pair.right).images.length, 1);
       app.carousel.left.index = Math.min(app.carousel.left.index, app.carousel.left.total - 1);
@@ -1017,17 +1075,54 @@
       severityLabel.textContent = label;
     }
 
+    function updateDots(side, activeIndex) {
+      document.querySelectorAll(`[data-dot-side="${side}"]`).forEach((dot, idx) => {
+        dot.classList.toggle('is-active', idx === activeIndex);
+      });
+    }
+
+    function jumpTrackWithoutAnimation(track, displayIndex) {
+      if (!track) return;
+      const previousTransition = track.style.transition;
+      track.style.transition = 'none';
+      track.style.transform = `translateX(-${displayIndex * 100}%)`;
+      void track.offsetHeight;
+      track.style.transition = previousTransition || '';
+    }
+
     function moveCarousel(side, direction, manual = false) {
       const state = app.carousel[side];
       const total = Math.max(Number(state.total) || 1, 1);
       if (total <= 1) return;
       if (manual) state.manual = true;
-      state.index = (state.index + direction + total) % total;
       const track = document.getElementById(`${side}Track`);
-      if (track) track.style.transform = `translateX(-${state.index * 100}%)`;
-      document.querySelectorAll(`[data-dot-side="${side}"]`).forEach((dot, idx) => {
-        dot.classList.toggle('is-active', idx === state.index);
-      });
+      if (!track) return;
+      const previousIndex = state.index;
+      const nextIndex = (previousIndex + direction + total) % total;
+      state.index = nextIndex;
+      updateDots(side, nextIndex);
+
+      if (direction > 0 && previousIndex === total - 1) {
+        track.style.transform = `translateX(-${(total + 1) * 100}%)`;
+        const handleWrap = () => {
+          track.removeEventListener('transitionend', handleWrap);
+          jumpTrackWithoutAnimation(track, 1);
+        };
+        track.addEventListener('transitionend', handleWrap, { once: true });
+        return;
+      }
+
+      if (direction < 0 && previousIndex === 0) {
+        track.style.transform = 'translateX(0%)';
+        const handleWrap = () => {
+          track.removeEventListener('transitionend', handleWrap);
+          jumpTrackWithoutAnimation(track, total);
+        };
+        track.addEventListener('transitionend', handleWrap, { once: true });
+        return;
+      }
+
+      track.style.transform = `translateX(-${(nextIndex + 1) * 100}%)`;
     }
 
     function setCarousel(side, index) {
@@ -1036,10 +1131,15 @@
       state.manual = true;
       state.index = Math.max(0, Math.min(index, total - 1));
       const track = document.getElementById(`${side}Track`);
-      if (track) track.style.transform = `translateX(-${state.index * 100}%)`;
-      document.querySelectorAll(`[data-dot-side="${side}"]`).forEach((dot, idx) => {
-        dot.classList.toggle('is-active', idx === state.index);
-      });
+      if (track) track.style.transform = `translateX(-${(state.index + (total > 1 ? 1 : 0)) * 100}%)`;
+      updateDots(side, state.index);
+    }
+
+    function setTopDown(side, open) {
+      app.topDownOpen[side] = Boolean(open);
+      const overlay = document.querySelector(`[data-topdown-overlay="${side}"]`);
+      if (!overlay) return;
+      overlay.classList.toggle('hidden', !open);
     }
 
     function bindCardEvents() {
@@ -1053,6 +1153,14 @@
 
       document.querySelectorAll('[data-dot-side]').forEach((button) => {
         button.addEventListener('click', () => setCarousel(button.dataset.dotSide, Number(button.dataset.dotIndex)));
+      });
+
+      document.querySelectorAll('[data-topdown-toggle]').forEach((button) => {
+        button.addEventListener('click', () => setTopDown(button.dataset.topdownToggle, true));
+      });
+
+      document.querySelectorAll('[data-topdown-close]').forEach((button) => {
+        button.addEventListener('click', () => setTopDown(button.dataset.topdownClose, false));
       });
     }
 
