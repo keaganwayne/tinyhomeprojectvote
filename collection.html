@@ -312,6 +312,54 @@
       animation: cloudFloat 13s linear infinite;
     }
 
+.boot-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 18% 16%, rgba(239, 228, 91, 0.18), transparent 18%),
+    radial-gradient(circle at 84% 72%, rgba(244, 179, 167, 0.18), transparent 20%),
+    rgba(248, 243, 231, 0.84);
+  backdrop-filter: blur(16px);
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 280ms ease, visibility 280ms ease;
+  visibility: visible;
+  z-index: 60;
+}
+
+.boot-overlay.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.boot-card {
+  width: min(92vw, 38rem);
+  border: 1px solid rgba(255,255,255,0.7);
+  background: rgba(255, 253, 248, 0.94);
+  border-radius: 2.75rem;
+  padding: 2.5rem 2rem;
+  text-align: center;
+  box-shadow: 0 26px 70px rgba(18, 48, 44, 0.14);
+}
+
+.boot-progress {
+  width: 100%;
+  height: 1rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: linear-gradient(90deg, rgba(159,232,213,0.32), rgba(244,179,167,0.24));
+}
+
+.boot-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #026a61, #1aa88f, #4ade80);
+  transition: width 220ms ease;
+}
+
     .video-scene .cloud-run::before { left: -18%; }
     .video-scene .cloud-run::after { left: -48%; top: 24%; animation-duration: 15s; animation-delay: -6s; }
 
@@ -441,6 +489,27 @@
     </div>
   </div>
 
+    <div id="bootOverlay" class="boot-overlay is-visible">
+  <div class="boot-card">
+    <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-mint/70">
+      <span class="material-symbols-outlined text-5xl text-teal">cottage</span>
+    </div>
+    <h2 class="groovy-title mt-6 text-4xl text-teal sm:text-5xl">Loading Houses</h2>
+    <p id="bootStatus" class="mx-auto mt-4 max-w-md text-base font-semibold leading-7 text-ink/72">
+      Preparing your first matchup...
+    </p>
+
+    <div class="mt-7">
+      <div class="boot-progress">
+        <div id="bootBar" class="boot-progress-fill" style="width: 4%;"></div>
+      </div>
+      <div class="mt-3 text-center">
+        <span id="bootPercent" class="text-sm font-extrabold uppercase tracking-[0.22em] text-teal/80">4%</span>
+      </div>
+    </div>
+  </div>
+</div>
+
   <main class="mx-auto max-w-[1680px] px-4 py-5 sm:px-6 lg:px-8">
     <header class="flex flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-white/50 bg-fog/78 px-5 py-4 shadow-soft backdrop-blur-xl sm:px-7">
       <div class="flex items-center gap-4">
@@ -549,7 +618,128 @@
     const MAX_IMAGE_SCAN = 20;
     const TOP_DOWN_FILENAMES = ['top-down.jpg', 'top-down.jpeg', 'top-down.png', 'top-down.webp'];
 
+    const SUPABASE_URL = 'https://trtwmxdtedqltjvzqdvu.supabase.co';
+    const SUPABASE_REST_BASE = `${SUPABASE_URL}/rest/v1`;
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRydHdteGR0ZWRxbHRqdnpxZHZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NTAwMTMsImV4cCI6MjA4ODIyNjAxM30.xgNPvo3JzKdvbGxRagQ53TUEgfPMkute0vFv70qmK_0';
 
+    const bootOverlay = document.getElementById('bootOverlay');
+    const bootStatus = document.getElementById('bootStatus');
+    const bootPercent = document.getElementById('bootPercent');
+    const bootBar = document.getElementById('bootBar');
+
+function hasAnonKey() {
+  return SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('PASTE_YOUR');
+}
+
+function supabaseHeaders(prefer = 'return=representation') {
+  return {
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    'Content-Type': 'application/json',
+    Prefer: prefer
+  };
+}
+
+function setBootProgress(percent, status) {
+  const safe = Math.max(0, Math.min(100, Math.round(percent)));
+  bootBar.style.width = `${safe}%`;
+  bootPercent.textContent = `${safe}%`;
+  if (status) bootStatus.textContent = status;
+}
+
+function hideBootOverlay() {
+  bootOverlay.classList.add('is-hidden');
+}
+
+function syncVoterSessionStorage() {
+  sessionStorage.setItem('thp_voter', JSON.stringify({
+    ...app.voter,
+    votesUsed: app.progress.votesUsed,
+    completed: app.progress.completed,
+    maxVotes: app.progress.maxVotes
+  }));
+}
+
+async function fetchSessionProgress(voter) {
+  const fallback = {
+    votesUsed: Number(voter.votesUsed) || 0,
+    completed: Boolean(voter.completed),
+    maxVotes: Number(voter.maxVotes) || 25
+  };
+
+  if (!hasAnonKey() || !voter.sessionId) return fallback;
+
+  const url = `${SUPABASE_REST_BASE}/thp_vote_sessions?id=eq.${encodeURIComponent(voter.sessionId)}&select=id,votes_used,max_votes,completed`;
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: supabaseHeaders('return=representation')
+  });
+
+  if (!response.ok) return fallback;
+
+  const rows = await response.json();
+  const row = rows?.[0];
+  if (!row) return fallback;
+
+  return {
+    votesUsed: Number(row.votes_used) || 0,
+    completed: Boolean(row.completed),
+    maxVotes: Number(row.max_votes) || 25
+  };
+}
+
+async function updateSessionProgress(votesUsed, completed) {
+  if (!hasAnonKey() || !app.voter.sessionId) return null;
+
+  const response = await fetch(
+    `${SUPABASE_REST_BASE}/thp_vote_sessions?id=eq.${encodeURIComponent(app.voter.sessionId)}`,
+    {
+      method: 'PATCH',
+      headers: supabaseHeaders('return=representation'),
+      body: JSON.stringify({
+        votes_used: votesUsed,
+        completed,
+        completed_at: completed ? new Date().toISOString() : null
+      })
+    }
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Session update failed: ${text}`);
+  }
+
+  const rows = await response.json();
+  return rows?.[0] || null;
+}
+
+async function insertVoteRow({ leftGroupId, rightGroupId, chosenGroupId, eloDelta }) {
+  if (!hasAnonKey() || !app.voter.sessionId) return null;
+
+  const payload = {
+    session_id: app.voter.sessionId,
+    voter_type: app.voter.voterType,
+    teacher_name: app.voter.voterType === 'teacher' ? app.voter.displayName : null,
+    student_id: app.voter.voterType === 'student' ? Number(app.voter.voterId) || null : null,
+    left_groupid: leftGroupId,
+    right_groupid: rightGroupId,
+    chosen_groupid: chosenGroupId,
+    elo_delta: eloDelta
+  };
+
+  const response = await fetch(`${SUPABASE_REST_BASE}/thp_pairwise_votes`, {
+    method: 'POST',
+    headers: supabaseHeaders('return=minimal'),
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Vote insert failed: ${text}`);
+  }
+
+  return true;
+}
     function safeParse(json, fallback) {
       try {
         return JSON.parse(json);
@@ -590,32 +780,56 @@
       return initial;
     }
 
-    function loadProgress(voter) {
-      const stored = safeParse(localStorage.getItem(progressKey(voter)), null);
-      if (stored && typeof stored === 'object') {
-        return {
-          votesUsed: Number(stored.votesUsed) || 0,
-          completed: Boolean(stored.completed),
-          maxVotes: Number(stored.maxVotes) || voter.maxVotes
-        };
-      }
-      return {
-        votesUsed: Number(voter.votesUsed) || 0,
-        completed: Boolean(voter.completed),
-        maxVotes: Number(voter.maxVotes) || 25
-      };
-    }
+async function loadProgress(voter) {
+  return fetchSessionProgress(voter);
+}
 
-    function persistProgress() {
-      localStorage.setItem(progressKey(app.voter), JSON.stringify(app.progress));
-      sessionStorage.setItem('thp_voter', JSON.stringify({
-        ...app.voter,
-        votesUsed: app.progress.votesUsed,
-        completed: app.progress.completed,
-        maxVotes: app.progress.maxVotes
-      }));
-      syncProgressUI();
+async function preloadInitialPairWithProgress(pair) {
+  setBootProgress(6, 'Finding the first matchup...');
+
+  const [leftMedia, rightMedia] = await Promise.all([
+    loadMediaForGroup(pair.left),
+    loadMediaForGroup(pair.right)
+  ]);
+
+  const tasks = [];
+
+  [leftMedia, rightMedia].forEach((media) => {
+    if (media.videoUrl) {
+      tasks.push(() => preloadVideo(media.videoUrl));
     }
+    media.images.forEach((url) => {
+      tasks.push(() => preloadImage(url));
+    });
+  });
+
+  if (!tasks.length) {
+    setBootProgress(100, 'Ready');
+    return;
+  }
+
+  let done = 0;
+  const total = tasks.length;
+
+  setBootProgress(12, 'Loading photos and video...');
+
+  await Promise.allSettled(
+    tasks.map((task) =>
+      task().finally(() => {
+        done += 1;
+        const percent = 12 + Math.round((done / total) * 88);
+        setBootProgress(percent, `Loading ${done} of ${total} assets...`);
+      })
+    )
+  );
+
+  setBootProgress(100, 'Ready');
+}
+
+function persistProgress() {
+  syncVoterSessionStorage();
+  syncProgressUI();
+}
 
     function loadRatings(voter) {
       return safeParse(localStorage.getItem(ratingsKey(voter)), initialRatings()) || initialRatings();
@@ -1164,24 +1378,25 @@
       });
     }
 
-    function updateRatings(winnerGroup, loserGroup) {
-      const winner = app.ratings[winnerGroup.groupId];
-      const loser = app.ratings[loserGroup.groupId];
-      const expectedWinner = expectedScore(winner.rating, loser.rating);
-      const expectedLoser = expectedScore(loser.rating, winner.rating);
-      const kBase = 20;
-      const uncertainty = 1 + 0.6 / Math.sqrt(Math.min(winner.comparisons, loser.comparisons) + 1);
-      const severityFactor = 1 + 0.35 * (2 * Math.abs(expectedWinner - 0.5));
-      const delta = kBase * uncertainty * severityFactor * (1 - expectedWinner);
+ function updateRatings(winnerGroup, loserGroup) {
+  const winner = app.ratings[winnerGroup.groupId];
+  const loser = app.ratings[loserGroup.groupId];
+  const expectedWinner = expectedScore(winner.rating, loser.rating);
+  const kBase = 20;
+  const uncertainty = 1 + 0.6 / Math.sqrt(Math.min(winner.comparisons, loser.comparisons) + 1);
+  const severityFactor = 1 + 0.35 * (2 * Math.abs(expectedWinner - 0.5));
+  const delta = kBase * uncertainty * severityFactor * (1 - expectedWinner);
 
-      winner.rating = Math.round((winner.rating + delta) * 10) / 10;
-      loser.rating = Math.round((loser.rating - delta) * 10) / 10;
-      winner.wins += 1;
-      loser.losses += 1;
-      winner.comparisons += 1;
-      loser.comparisons += 1;
-      persistRatings();
-    }
+  winner.rating = Math.round((winner.rating + delta) * 10) / 10;
+  loser.rating = Math.round((loser.rating - delta) * 10) / 10;
+  winner.wins += 1;
+  loser.losses += 1;
+  winner.comparisons += 1;
+  loser.comparisons += 1;
+  persistRatings();
+
+  return Math.round(delta * 1000) / 1000;
+}
 
     function animateIntoView(direction) {
       const incomingClass = direction === 'left' ? 'enter-right' : 'enter-left';
@@ -1203,61 +1418,80 @@
       });
     }
 
-    function castVote(side) {
-      if (app.isAnimating || app.progress.completed) return;
+function castVote(side) {
+  if (app.isAnimating || app.progress.completed) return;
 
-      const winnerGroup = side === 'left' ? app.currentPair.left : app.currentPair.right;
-      const loserGroup = side === 'left' ? app.currentPair.right : app.currentPair.left;
-      const swipeClass = side === 'left' ? 'swipe-left' : 'swipe-right';
+  const winnerGroup = side === 'left' ? app.currentPair.left : app.currentPair.right;
+  const loserGroup = side === 'left' ? app.currentPair.right : app.currentPair.left;
+  const swipeClass = side === 'left' ? 'swipe-left' : 'swipe-right';
 
-      app.isAnimating = true;
-      vsBadge.classList.add('vs-pulse');
-      setTimeout(() => vsBadge.classList.remove('vs-pulse'), 620);
+  app.isAnimating = true;
+  vsBadge.classList.add('vs-pulse');
+  setTimeout(() => vsBadge.classList.remove('vs-pulse'), 620);
 
-      voteFlash.classList.remove('active');
-      void voteFlash.offsetWidth;
-      voteFlash.classList.add('active');
+  voteFlash.classList.remove('active');
+  void voteFlash.offsetWidth;
+  voteFlash.classList.add('active');
 
-      if (side === 'left') {
-        leftCard.classList.add('is-chosen');
-        rightCard.classList.add('is-dimmed');
-      } else {
-        rightCard.classList.add('is-chosen');
-        leftCard.classList.add('is-dimmed');
-      }
+  if (side === 'left') {
+    leftCard.classList.add('is-chosen');
+    rightCard.classList.add('is-dimmed');
+  } else {
+    rightCard.classList.add('is-chosen');
+    leftCard.classList.add('is-dimmed');
+  }
 
-      battleStage.classList.add('is-animating');
-      leftCard.classList.add(swipeClass);
-      rightCard.classList.add(swipeClass);
+  battleStage.classList.add('is-animating');
+  leftCard.classList.add(swipeClass);
+  rightCard.classList.add(swipeClass);
 
-      updateRatings(winnerGroup, loserGroup);
-      app.progress.votesUsed += 1;
-      app.progress.completed = app.progress.votesUsed >= app.progress.maxVotes;
-      persistProgress();
+  const eloDelta = updateRatings(winnerGroup, loserGroup);
+  const nextVotesUsed = app.progress.votesUsed + 1;
+  const nextCompleted = nextVotesUsed >= app.progress.maxVotes;
 
-      setTimeout(async () => {
-        battleStage.classList.remove('is-animating');
-        app.carousel.left = { index: 0, manual: false, total: 1 };
-        app.carousel.right = { index: 0, manual: false, total: 1 };
+  app.progress.votesUsed = nextVotesUsed;
+  app.progress.completed = nextCompleted;
+  persistProgress();
 
-        if (app.progress.completed) {
-          completionOverlay.classList.add('is-visible');
-          app.isAnimating = false;
-          app.nextPair = null;
-          app.nextPairReady = false;
-          app.preloadPromise = null;
-          return;
-        }
+  const savePromise = Promise.all([
+    insertVoteRow({
+      leftGroupId: app.currentPair.left.groupId,
+      rightGroupId: app.currentPair.right.groupId,
+      chosenGroupId: winnerGroup.groupId,
+      eloDelta
+    }),
+    updateSessionProgress(nextVotesUsed, nextCompleted)
+  ]).catch((error) => {
+    console.error('Vote save failed.', error);
+  });
 
-        const queuedPair = app.nextPair || chooseQueuedPair(app.currentPair);
-        app.currentPair = queuedPair;
-        app.nextPair = null;
-        app.nextPairReady = false;
-        await renderPair(app.currentPair);
-        animateIntoView(side);
-        queueNextPair();
-      }, 620);
+  setTimeout(async () => {
+    battleStage.classList.remove('is-animating');
+    app.carousel.left = { index: 0, manual: false, total: 1 };
+    app.carousel.right = { index: 0, manual: false, total: 1 };
+
+    if (app.progress.completed) {
+      await savePromise;
+      completionOverlay.classList.add('is-visible');
+      app.isAnimating = false;
+      app.nextPair = null;
+      app.nextPairReady = false;
+      app.preloadPromise = null;
+      return;
     }
+
+    const queuedPair = app.nextPair || chooseQueuedPair(app.currentPair);
+    app.currentPair = queuedPair;
+    app.nextPair = null;
+    app.nextPairReady = false;
+
+    await renderPair(app.currentPair);
+    animateIntoView(side);
+    queueNextPair();
+
+    await savePromise;
+  }, 620);
+}
 
     function tickAutoCarousel() {
       if (app.isAnimating || app.progress.completed) return;
@@ -1266,25 +1500,36 @@
       });
     }
 
-    async function init() {
-      app.voter = loadVoter();
-      app.progress = loadProgress(app.voter);
-      app.ratings = loadRatings(app.voter);
-      syncProgressUI();
-      if (playableGroups.length < 2) {
-        throw new Error('Upload at least two groups before opening the collection page.');
-      }
-      if (app.progress.completed || app.progress.votesUsed >= app.progress.maxVotes) {
-        app.progress.completed = true;
-        persistProgress();
-        completionOverlay.classList.add('is-visible');
-        return;
-      }
-      app.currentPair = choosePair();
-      const initialQueuedPair = chooseQueuedPair(app.currentPair);
-      queueNextPair(initialQueuedPair);
-      await renderPair(app.currentPair);
-    }
+async function init() {
+  app.voter = loadVoter();
+  app.ratings = loadRatings(app.voter);
+  app.progress = await loadProgress(app.voter);
+  syncProgressUI();
+
+  if (playableGroups.length < 2) {
+    throw new Error('Upload at least two groups before opening the collection page.');
+  }
+
+  if (app.progress.completed || app.progress.votesUsed >= app.progress.maxVotes) {
+    app.progress.completed = true;
+    persistProgress();
+    completionOverlay.classList.add('is-visible');
+    hideBootOverlay();
+    return;
+  }
+
+  app.currentPair = choosePair();
+  const initialQueuedPair = chooseQueuedPair(app.currentPair);
+
+  await preloadInitialPairWithProgress(app.currentPair);
+  queueNextPair(initialQueuedPair);
+
+  await renderPair(app.currentPair);
+
+  setTimeout(() => {
+    hideBootOverlay();
+  }, 180);
+}
 
     completionLeaderboardButton.addEventListener('click', () => {
       window.location.href = 'leaderboard.html';
