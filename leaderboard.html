@@ -100,7 +100,17 @@
     .leader-row {
       position: relative;
       overflow: hidden;
-      transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+      transition: transform 520ms cubic-bezier(.22,.61,.36,1), box-shadow 200ms ease, border-color 200ms ease;
+      will-change: transform;
+    }
+
+    .leader-row.is-new {
+      animation: fadeUp 380ms ease both;
+    }
+
+    .leader-row.is-updating .score-number,
+    .leader-row.is-updating .score-bar > span {
+      transition: color 260ms ease, width 520ms cubic-bezier(.22,.61,.36,1);
     }
 
     .leader-row:hover {
@@ -119,15 +129,6 @@
       inset: 0 auto 0 0;
       width: 10px;
       background: var(--accent, #026a61);
-    }
-
-    .emblem {
-      position: relative;
-      overflow: hidden;
-      isolation: isolate;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25), 0 10px 24px rgba(0,0,0,0.08);
-      background: linear-gradient(145deg, var(--accent-soft, #9fe8d5), var(--accent, #026a61));
-      color: white;
     }
 
     .emblem::before,
@@ -235,6 +236,11 @@
   </div>
 
   <script>
+    const SUPABASE_URL = 'https://trtwmxdtedqltjvzqdvu.supabase.co';
+    const SUPABASE_ANON_KEY = 'PASTE_YOUR_SUPABASE_ANON_KEY_HERE';
+    const SUPABASE_REST_BASE = `${SUPABASE_URL}/rest/v1`;
+    const REFRESH_MS = 10000;
+
     const groups = [{"id": 61501, "groupId": 61501, "className": "61B", "animal": "Penguin", "members": ["Isabella", "Kimberley", "Charles", "Noah"]}, {"id": 61502, "groupId": 61502, "className": "61B", "animal": "Bear", "members": ["Jiaran", "Sindy", "Nora", "Iris"]}, {"id": 61503, "groupId": 61503, "className": "61B", "animal": "Rhino", "members": ["Jayden", "Simon", "Kelly", "Cerina"]}, {"id": 61504, "groupId": 61504, "className": "61B", "animal": "Kangaroo", "members": ["Annie", "Teresa", "Ripple", "Elena"]}, {"id": 61505, "groupId": 61505, "className": "61B", "animal": "Wolf", "members": ["Chloe", "Kerry", "Anka", "Suri"]}, {"id": 61506, "groupId": 61506, "className": "61B", "animal": "Hippo", "members": ["Timothy", "Catherine", "Austin"]}, {"id": 62501, "groupId": 62501, "className": "62B", "animal": "Owl", "members": ["Alex", "Derrick", "Johan"]}, {"id": 62502, "groupId": 62502, "className": "62B", "animal": "Dolphin", "members": ["Elsa", "Evelyn", "Owen", "Ling"]}, {"id": 62503, "groupId": 62503, "className": "62B", "animal": "Turtle", "members": ["William", "Daniel", "Austin"]}, {"id": 62504, "groupId": 62504, "className": "62B", "animal": "Fox", "members": ["Jerry", "Cleo", "Hans", "Ivan"]}, {"id": 62505, "groupId": 62505, "className": "62B", "animal": "Panda", "members": ["Anna", "Ela", "Jasmine", "Poppy"]}, {"id": 62506, "groupId": 62506, "className": "62B", "animal": "Giraffe", "members": ["Jeffery", "Max", "Jethro", "Veronica"]}, {"id": 63501, "groupId": 63501, "className": "63B", "animal": "Shark", "members": ["Jason", "Bryan", "Nina", "Noe"]}, {"id": 63502, "groupId": 63502, "className": "63B", "animal": "Koala", "members": ["Hope", "Ethan", "Matthew", "Remy"]}, {"id": 63503, "groupId": 63503, "className": "63B", "animal": "Falcon", "members": ["Kimi", "Ryan", "Quintas", "Selene"]}, {"id": 63504, "groupId": 63504, "className": "63B", "animal": "Tiger", "members": ["Hugh", "Angel", "Felix", "Jeremiah"]}, {"id": 63505, "groupId": 63505, "className": "63B", "animal": "Otter", "members": ["Lucy", "Lucas", "Nate", "Icey"]}, {"id": 63506, "groupId": 63506, "className": "63B", "animal": "Cheetah", "members": ["Luka", "Miranda", "Steven"]}, {"id": 63507, "groupId": 63507, "className": "63B", "animal": "Zebra", "members": ["Henry", "Charlotte", "David"]}, {"id": 64501, "groupId": 64501, "className": "64B", "animal": "Lion", "members": ["Angela", "Rio", "Ethan", "Calinda"]}, {"id": 64502, "groupId": 64502, "className": "64B", "animal": "Seal", "members": ["Yuling", "Hugo", "Glory", "William"]}, {"id": 64503, "groupId": 64503, "className": "64B", "animal": "Octopus", "members": ["Jcee", "Elizabeth", "Arthur", "Ryan"]}, {"id": 64504, "groupId": 64504, "className": "64B", "animal": "Eagle", "members": ["Oscar", "Jonathan", "Evelyn", "Alan"]}, {"id": 64505, "groupId": 64505, "className": "64B", "animal": "Leopard", "members": ["Tara", "Matthew", "Evan"]}, {"id": 64506, "groupId": 64506, "className": "64B", "animal": "Flamingo", "members": ["Nina", "Charles", "Austin"]}, {"id": 64507, "groupId": 64507, "className": "64B", "animal": "Elephant", "members": ["Jovin", "Jasper", "Ari"]}];
 
     const palette = [
@@ -252,6 +258,17 @@
       } catch (error) {
         return fallback;
       }
+    }
+
+    function hasAnonKey() {
+      return Boolean(SUPABASE_ANON_KEY && SUPABASE_ANON_KEY.trim().length > 20 && !SUPABASE_ANON_KEY.includes('PASTE_YOUR'));
+    }
+
+    function apiHeaders() {
+      return {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+      };
     }
 
     function hashNumber(value) {
@@ -274,28 +291,45 @@
       return (parts[0][0] + parts[1][0]).toUpperCase();
     }
 
+    const ICON_BASE = 'assets/icons';
+    const animalIconMap = {
+      Bear: 'bear.png',
+      Cheetah: 'cheetah.png',
+      Dolphin: 'dolphin.png',
+      Eagle: 'eagle.png',
+      Elephant: 'elephant.png',
+      Falcon: 'falcon.png',
+      Flamingo: 'flamingo.png',
+      Fox: 'fox.png',
+      Giraffe: 'giraffe.png',
+      Hippo: 'hippo.png',
+      Kangaroo: 'kangaroo.png',
+      Koala: 'koala.png',
+      Leopard: 'leopard.png',
+      Lion: 'lion.png',
+      Octopus: 'octopus.png',
+      Otter: 'otter.png',
+      Owl: 'owl.png',
+      Panda: 'panda.png',
+      Penguin: 'penguin.png',
+      Rhino: 'rhino.png',
+      Seal: 'seal.png',
+      Shark: 'shark.png',
+      Tiger: 'tiger.png',
+      Turtle: 'turtle.png',
+      Wolf: 'wolf.png',
+      Zebra: 'zebra.png'
+    };
+
+    function getIconUrl(row) {
+      const filename = row.logoFilename || animalIconMap[row.animal];
+      return filename ? `${ICON_BASE}/${filename}` : '';
+    }
+
     function progressBarWidth(rating, minRating, maxRating) {
       if (maxRating === minRating) return 50;
       const pct = ((rating - minRating) / (maxRating - minRating)) * 100;
       return Math.max(12, Math.min(100, pct));
-    }
-
-    function initialRatings() {
-      const initial = {};
-      groups.forEach((group) => {
-        initial[group.groupId] = { rating: 1500, wins: 0, losses: 0, comparisons: 0 };
-      });
-      return initial;
-    }
-
-    function loadBoardRatings(boardType) {
-      const key = `thp_rankings::${boardType}`;
-      return safeParse(localStorage.getItem(key), initialRatings()) || initialRatings();
-    }
-
-    function totalVotesForBoard(ratings) {
-      const totalComparisons = Object.values(ratings).reduce((sum, entry) => sum + (Number(entry.comparisons) || 0), 0);
-      return Math.round(totalComparisons / 2);
     }
 
     function scoreFromRating(rating) {
@@ -303,26 +337,69 @@
       return Math.max(0, Math.min(100, score));
     }
 
-    function buildRows(boardType) {
-      const ratings = loadBoardRatings(boardType);
-      const rows = groups.map((group) => {
-        const stats = ratings[group.groupId] || { rating: 1500, wins: 0, losses: 0, comparisons: 0 };
+    const groupMap = new Map(groups.map(group => [Number(group.groupId), group]));
+
+    function fallbackBoardProfiles() {
+      return groups.map(group => ({
+        ...group,
+        logoFilename: animalIconMap[group.animal] || '',
+        teacherRating: 1500,
+        studentRating: 1500,
+        teacherMatchups: 0,
+        studentMatchups: 0
+      }));
+    }
+
+    async function fetchGroupProfiles() {
+      if (!hasAnonKey()) {
+        return fallbackBoardProfiles();
+      }
+
+      const url = new URL(`${SUPABASE_REST_BASE}/thp_group_profiles`);
+      url.searchParams.set('select', 'groupid,animal_name,logo_filename,teacher_elo,student_elo,teacher_votes_count,student_votes_count,active');
+      url.searchParams.set('active', 'eq.true');
+      url.searchParams.set('order', 'groupid.asc');
+
+      const response = await fetch(url.toString(), { headers: apiHeaders() });
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(`Leaderboard fetch failed: ${response.status} ${message}`);
+      }
+
+      const profiles = await response.json();
+
+      return profiles.map((profile) => {
+        const base = groupMap.get(Number(profile.groupid));
+        if (!base) return null;
+
         return {
-          ...group,
-          rating: Number(stats.rating) || 1500,
-          wins: Number(stats.wins) || 0,
-          losses: Number(stats.losses) || 0,
-          comparisons: Number(stats.comparisons) || 0,
-          score: scoreFromRating(Number(stats.rating) || 1500)
+          ...base,
+          animal: profile.animal_name || base.animal,
+          logoFilename: profile.logo_filename || animalIconMap[base.animal] || '',
+          teacherRating: Number(profile.teacher_elo) || 1500,
+          studentRating: Number(profile.student_elo) || 1500,
+          teacherMatchups: Number(profile.teacher_votes_count) || 0,
+          studentMatchups: Number(profile.student_votes_count) || 0
+        };
+      }).filter(Boolean);
+    }
+
+    function buildRows(boardType, profiles) {
+      return profiles.map((row) => {
+        const rating = boardType === 'teacher' ? row.teacherRating : row.studentRating;
+        const matchups = boardType === 'teacher' ? row.teacherMatchups : row.studentMatchups;
+
+        return {
+          ...row,
+          rating,
+          matchups,
+          score: scoreFromRating(rating)
         };
       }).sort((a, b) => {
         if (b.rating !== a.rating) return b.rating - a.rating;
-        if (b.wins !== a.wins) return b.wins - a.wins;
-        if (b.comparisons !== a.comparisons) return b.comparisons - a.comparisons;
+        if (b.matchups !== a.matchups) return b.matchups - a.matchups;
         return a.animal.localeCompare(b.animal);
       });
-
-      return { rows, ratings };
     }
 
     const listEl = document.getElementById('leaderboardList');
@@ -333,41 +410,33 @@
     const studentToggle = document.getElementById('studentToggle');
 
     let currentBoard = 'teacher';
+    let boardProfiles = fallbackBoardProfiles();
 
     const sessionVoter = safeParse(sessionStorage.getItem('thp_voter'), null);
     if (sessionVoter && sessionVoter.voterType === 'student') {
       currentBoard = 'student';
     }
 
-    function renderBoard() {
-      const { rows, ratings } = buildRows(currentBoard);
-      const minRating = Math.min(...rows.map((row) => row.rating));
-      const maxRating = Math.max(...rows.map((row) => row.rating));
-
-      boardNameEl.textContent = currentBoard === 'teacher' ? 'Teachers' : 'Students';
-      houseCountEl.textContent = rows.length;
-      boardVotesEl.textContent = totalVotesForBoard(ratings);
-
-      teacherToggle.classList.toggle('is-active', currentBoard === 'teacher');
-      studentToggle.classList.toggle('is-active', currentBoard === 'student');
-
-      listEl.innerHTML = rows.map((row, index) => {
-        const colors = colorForGroup(row);
-        const rank = index + 1;
-        const provisional = row.comparisons < 8;
-        const bar = progressBarWidth(row.rating, minRating, maxRating);
-        const score = row.score.toFixed(1);
-        const members = row.members.join(' • ');
-
-        return `
-          <article class="leader-row fade-up rounded-[2rem] border border-white/80 bg-white/78 px-4 py-4 shadow-soft backdrop-blur sm:px-5 sm:py-5 ${rank === 1 ? 'is-top' : ''}" style="--accent:${colors.accent};--accent-soft:${colors.soft};animation-delay:${index * 32}ms;">
+    
+    function renderRowInner(row, rank, colors, provisional, bar, score) {
+      const members = row.members.join(' • ');
+      return `
             <div class="grid gap-4 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:items-center">
               <div class="flex items-center justify-center">
                 <div class="display-font flex h-14 w-14 items-center justify-center rounded-full bg-sand text-2xl sm:h-16 sm:w-16 sm:text-[1.75rem]" style="color:${colors.text};">#${rank}</div>
               </div>
 
-              <div class="emblem flex h-16 w-16 items-center justify-center rounded-[1.25rem] text-xl font-extrabold uppercase tracking-[0.08em] sm:h-20 sm:w-20 sm:text-2xl">
-                <span class="relative z-10">${initialsForAnimal(row.animal)}</span>
+              <div class="emblem h-16 w-16 overflow-hidden rounded-[1.25rem] sm:h-20 sm:w-20">
+                <img
+                  src="${getIconUrl(row)}"
+                  alt="${row.animal} icon"
+                  class="block h-full w-full object-cover"
+                  loading="lazy"
+                  onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                >
+                <span class="hidden h-full w-full items-center justify-center text-xl font-extrabold uppercase tracking-[0.08em] sm:text-2xl">
+                  ${initialsForAnimal(row.animal)}
+                </span>
               </div>
 
               <div class="min-w-0">
@@ -378,12 +447,10 @@
                 </div>
                 <div class="mt-1 text-sm font-semibold text-ink/70 sm:text-[15px]">${members}</div>
                 <div class="mt-3 flex flex-wrap items-center gap-3 text-[11px] font-extrabold uppercase tracking-[0.2em] text-ink/48">
-                  <span>${row.wins} W</span>
-                  <span>${row.losses} L</span>
-                  <span>${row.comparisons} Matchups</span>
+                  <span>${row.matchups} Matchups</span>
                 </div>
                 <div class="mt-3 score-bar">
-                  <span style="--bar:${bar}%;"></span>
+                  <span style="--bar:${bar}%; width:${bar}%;"></span>
                 </div>
               </div>
 
@@ -393,22 +460,123 @@
                 <div class="mt-2 text-sm font-bold text-ink/62">ELO ${Math.round(row.rating)}</div>
               </div>
             </div>
-          </article>
-        `;
-      }).join('');
+      `;
+    }
+
+    const rowElements = new Map();
+    let lastSignature = '';
+
+    function updateBoardMeta(rows) {
+      boardNameEl.textContent = currentBoard === 'teacher' ? 'Teachers' : 'Students';
+      houseCountEl.textContent = rows.length;
+      boardVotesEl.textContent = rows.reduce((sum, row) => sum + row.matchups, 0);
+
+      teacherToggle.classList.toggle('is-active', currentBoard === 'teacher');
+      studentToggle.classList.toggle('is-active', currentBoard === 'student');
+    }
+
+    function signatureForRows(rows) {
+      return JSON.stringify(rows.map((row) => [row.groupId, row.rating, row.matchups]));
+    }
+
+    function renderBoard(force = false) {
+      const rows = buildRows(currentBoard, boardProfiles);
+      updateBoardMeta(rows);
+
+      const signature = signatureForRows(rows);
+      if (!force && signature === lastSignature) return;
+      lastSignature = signature;
+
+      const minRating = Math.min(...rows.map((row) => row.rating));
+      const maxRating = Math.max(...rows.map((row) => row.rating));
+
+      const previousPositions = new Map();
+      Array.from(listEl.children).forEach((el) => {
+        previousPositions.set(el.dataset.groupId, el.getBoundingClientRect().top);
+      });
+
+      const activeIds = new Set(rows.map((row) => String(row.groupId)));
+
+      rows.forEach((row, index) => {
+        const id = String(row.groupId);
+        const colors = colorForGroup(row);
+        const rank = index + 1;
+        const provisional = row.matchups < 8;
+        const bar = progressBarWidth(row.rating, minRating, maxRating);
+        const score = row.score.toFixed(1);
+
+        let article = rowElements.get(id);
+        const isNew = !article;
+
+        if (!article) {
+          article = document.createElement('article');
+          article.dataset.groupId = id;
+          rowElements.set(id, article);
+        }
+
+        article.className = `leader-row rounded-[2rem] border border-white/80 bg-white/78 px-4 py-4 shadow-soft backdrop-blur sm:px-5 sm:py-5 ${rank === 1 ? 'is-top' : ''} ${isNew ? 'is-new' : ''}`;
+        article.style.setProperty('--accent', colors.accent);
+        article.style.setProperty('--accent-soft', colors.soft);
+        article.innerHTML = renderRowInner(row, rank, colors, provisional, bar, score);
+        listEl.appendChild(article);
+      });
+
+      Array.from(rowElements.keys()).forEach((id) => {
+        if (!activeIds.has(id)) {
+          const el = rowElements.get(id);
+          if (el?.parentNode) el.parentNode.removeChild(el);
+          rowElements.delete(id);
+        }
+      });
+
+      Array.from(listEl.children).forEach((el) => {
+        const oldTop = previousPositions.get(el.dataset.groupId);
+        const newTop = el.getBoundingClientRect().top;
+        if (oldTop !== undefined) {
+          const delta = oldTop - newTop;
+          if (Math.abs(delta) > 1) {
+            el.style.transition = 'none';
+            el.style.transform = `translateY(${delta}px)`;
+            requestAnimationFrame(() => {
+              el.style.transition = '';
+              el.style.transform = '';
+            });
+          }
+        } else {
+          el.style.opacity = '0';
+          el.style.transform = 'translateY(10px)';
+          requestAnimationFrame(() => {
+            el.style.transition = '';
+            el.style.opacity = '1';
+            el.style.transform = '';
+          });
+        }
+      });
+    }
+
+    async function refreshBoardData(force = false) {
+      try {
+        boardProfiles = await fetchGroupProfiles();
+      } catch (error) {
+        console.error(error);
+      }
+      renderBoard(force);
     }
 
     teacherToggle.addEventListener('click', () => {
       currentBoard = 'teacher';
-      renderBoard();
+      renderBoard(true);
     });
 
     studentToggle.addEventListener('click', () => {
       currentBoard = 'student';
-      renderBoard();
+      renderBoard(true);
     });
 
-    renderBoard();
+    renderBoard(true);
+    refreshBoardData(true);
+    setInterval(() => refreshBoardData(false), REFRESH_MS);
+
   </script>
 </body>
 </html>

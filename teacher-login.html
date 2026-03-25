@@ -43,10 +43,7 @@
     };
   </script>
   <style>
-    :root {
-      color-scheme: light;
-    }
-
+    :root { color-scheme: light; }
     body {
       font-family: 'Plus Jakarta Sans', sans-serif;
       background:
@@ -55,15 +52,12 @@
         linear-gradient(115deg, #d8efe3 0%, #a9ebdb 46%, #f7d4cc 100%);
       min-height: 100vh;
     }
-
     .floaty-orb {
       animation: drift 8s ease-in-out infinite;
       backdrop-filter: blur(8px);
     }
-
     .floaty-orb.delay-1 { animation-delay: -2s; }
     .floaty-orb.delay-2 { animation-delay: -4s; }
-
     .groovy-title,
     .brand-title,
     .cta-title {
@@ -71,23 +65,12 @@
       letter-spacing: 0.02em;
       line-height: 0.95;
     }
-
     .groovy-shadow-green {
       text-shadow: 0 6px 0 rgba(2, 106, 97, 0.14), 0 10px 24px rgba(2, 106, 97, 0.16);
     }
-
-    .brand-title {
-      text-shadow: 0 4px 0 rgba(2, 106, 97, 0.12);
-    }
-
-    .teacher-select {
-      background-image: none;
-    }
-
-    .teacher-select option {
-      color: #2a2927;
-    }
-
+    .brand-title { text-shadow: 0 4px 0 rgba(2, 106, 97, 0.12); }
+    .teacher-select { background-image: none; }
+    .teacher-select option { color: #2a2927; }
     .card-glow::before {
       content: '';
       position: absolute;
@@ -97,7 +80,6 @@
         radial-gradient(circle at 100% 100%, rgba(244, 179, 167, 0.28), transparent 28%);
       pointer-events: none;
     }
-
     @keyframes drift {
       0%, 100% { transform: translateY(0px) rotate(0deg); }
       50% { transform: translateY(-10px) rotate(3deg); }
@@ -127,8 +109,7 @@
           <div class="mt-10 text-center sm:mt-12">
             <h1 class="groovy-title groovy-shadow-green text-5xl text-teal sm:text-6xl lg:text-7xl">Pick Your<br> Name</h1>
             <p class="mx-auto mt-5 max-w-xl text-base font-medium leading-7 text-ink/72 sm:text-lg">
-              Teachers can vote on up to <span class="font-extrabold text-teal">25 times head-to-head matchups</span>.
-              Don't forget to check the leaderboard once you're done.
+              Enter to begin.
             </p>
           </div>
 
@@ -138,28 +119,17 @@
             <div class="relative">
               <span class="material-symbols-outlined pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-teal">person</span>
               <select id="teacherSelect" class="teacher-select h-16 w-full appearance-none rounded-full border-2 border-transparent bg-sand px-14 pr-14 text-base font-semibold text-ink outline-none transition focus:border-teal focus:bg-white focus:ring-4 focus:ring-teal/10 sm:text-lg">
-                <option value="">Knock knock! Who's there?</option>
+                <option value="">Loading teachers...</option>
               </select>
               <span class="material-symbols-outlined pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-teal/70">expand_more</span>
             </div>
 
             <p id="helperText" class="mt-4 min-h-[1.5rem] text-sm font-semibold text-coralDeep"></p>
 
-            <button id="enterButton" type="button" class="mt-4 flex h-16 w-full items-center justify-center gap-3 rounded-full bg-teal px-8 text-lg font-extrabold uppercase tracking-[0.18em] text-white shadow-button transition hover:-translate-y-0.5 hover:bg-tealDeep active:translate-y-0 active:scale-[0.985] sm:text-xl">
+            <button id="enterButton" type="button" class="mt-4 flex h-16 w-full items-center justify-center gap-3 rounded-full bg-teal px-8 text-lg font-extrabold uppercase tracking-[0.18em] text-white shadow-button transition hover:-translate-y-0.5 hover:bg-tealDeep active:translate-y-0 active:scale-[0.985] sm:text-xl disabled:cursor-not-allowed disabled:opacity-60">
               <span class="cta-title text-xl sm:text-2xl">Enter</span>
               <span class="material-symbols-outlined text-3xl">arrow_forward</span>
             </button>
-
-            <div class="mt-6 grid gap-3 sm:grid-cols-2">
-              <div class="rounded-3xl bg-white/72 px-5 py-4">
-                <p class="text-xs font-extrabold uppercase tracking-[0.18em] text-teal/78">Session rule</p>
-                <p class="mt-1 text-sm font-semibold text-ink/74">Once you're in you'll be given two houses to vote between.</p>
-              </div>
-              <div class="rounded-3xl bg-white/72 px-5 py-4">
-                <p class="text-xs font-extrabold uppercase tracking-[0.18em] text-teal/78">blind voting</p>
-                <p class="mt-1 text-sm font-semibold text-ink/74">Only the houses, no student names or biases allowed.</p>
-              </div>
-            </div>
           </div>
         </div>
       </section>
@@ -167,120 +137,191 @@
   </main>
 
   <script>
-    const teacherNames = [
-      "Susan Gotthelf",
-      "Yan Zhang",
-      "Alex Changfoot",
-      "Alexandre Rihani",
-      "Alina Li",
-      "Anne Douma",
-      "Betty Chen",
-      "Catherine Wang",
-      "Chanelle Marais",
-      "Connie Chen",
-      "Damon Wang",
-      "David James Peter Campbell",
-      "David Sanchez Sanz",
-      "Dima sukhar",
-      "Dori Yacono",
-      "Dr. Lilian C. Puig",
-      "Dustin S Blaasch",
-      "Emilly Luo",
-      "Frida Zhang",
-      "Grace Shen",
-      "Hao Xu",
-      "Jacqueline Li",
-      "Jaime Nozal",
-      "James Hutt",
-      "Janelle Wang",
-      "Jared Christensen",
-      "Jason Palmer",
-      "JingWen Cai",
-      "John Zhang",
-      "Joshua Yager",
-      "Joyce Qu",
-      "Keagan Appel",
-      "Kerry Newton",
-      "Kevin Cao",
-      "Kevin Jackson",
-      "Kevin Lister",
-      "Kevin Salveson",
-      "Kristin Espanola",
-      "Leo Li",
-      "Linda Tong",
-      "Manuel Fernandez",
-      "Marcus Rogers",
-      "Mathieu Chusseau",
-      "Matt Janko",
-      "Meiyun He",
-      "Melissa Joynt",
-      "Milos Dordevic",
-      "Min Fang",
-      "Molly Wang",
-      "Monica Xia",
-      "Nikola Stojkovic",
-      "Qianqian Li",
-      "Reina Chen",
-      "Rob Tynon",
-      "Ross Ewing",
-      "Seow Hwee Keng Judy",
-      "Sergi Gil",
-      "Simon Chen",
-      "Simona Chen",
-      "Sophia Wang",
-      "Stella Xu",
-      "Stephanie Hughena Fletcher",
-      "Stewart Dods",
-      "Tetiana Synytsia",
-      "Thomas John Davis IV",
-      "Thomas Morihain",
-      "Weiting Chen",
-      "Xi Jin",
-      "Zachary Heitkamp",
-      "Zumou Lin"
+    const SUPABASE_URL = 'https://trtwmxdtedqltjvzqdvu.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRydHdteGR0ZWRxbHRqdnpxZHZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NTAwMTMsImV4cCI6MjA4ODIyNjAxM30.xgNPvo3JzKdvbGxRagQ53TUEgfPMkute0vFv70qmK_0';
+    const COLLECTION_PAGE = 'collection.html';
+    const LEADERBOARD_PAGE = 'leaderboard.html';
+
+    const fallbackTeacherNames = [
+      'Susan Gotthelf','Yan Zhang','Alex Changfoot','Alexandre Rihani','Alina Li','Anne Douma','Betty Chen',
+      'Catherine Wang','Chanelle Marais','Connie Chen','Damon Wang','David James Peter Campbell',
+      'David Sanchez Sanz','Dima Sukhar','Dori Yacono','Dr. Lilian C. Puig','Dustin S Blaasch','Emilly Luo',
+      'Frida Zhang','Grace Shen','Hao Xu','Jacqueline Li','Jaime Nozal','James Hutt','Janelle Wang',
+      'Jared Christensen','Jason Palmer','JingWen Cai','John Zhang','Joshua Yager','Joyce Qu','Keagan Appel',
+      'Kerry Newton','Kevin Cao','Kevin Jackson','Kevin Lister','Kevin Salveson','Kristin Espanola','Leo Li',
+      'Linda Tong','Manuel Fernandez','Marcus Rogers','Mathieu Chusseau','Matt Janko','Meiyun He','Melissa Joynt',
+      'Milos Dordevic','Min Fang','Molly Wang','Monica Xia','Nikola Stojkovic','Qianqian Li','Reina Chen',
+      'Rob Tynon','Ross Ewing','Seow Hwee Keng Judy','Sergi Gil','Simon Chen','Simona Chen','Sophia Wang',
+      'Stella Xu','Stephanie Hughena Fletcher','Stewart Dods','Tetiana Synytsia','Thomas John Davis IV',
+      'Thomas Morihain','Weiting Chen','Xi Jin','Zachary Heitkamp','Zumou Lin'
     ];
 
     const select = document.getElementById('teacherSelect');
     const helperText = document.getElementById('helperText');
     const enterButton = document.getElementById('enterButton');
 
-    teacherNames
-      .slice()
-      .sort((a, b) => a.localeCompare(b))
-      .forEach((name) => {
+    function hasAnonKey() {
+      return SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('PASTE_YOUR_SUPABASE_ANON_KEY_HERE');
+    }
+
+    function apiHeaders(includeJson = false) {
+      const headers = {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+      };
+      if (includeJson) headers['Content-Type'] = 'application/json';
+      return headers;
+    }
+
+    function setHelper(text = '', isError = false) {
+      helperText.textContent = text;
+      helperText.className = `mt-4 min-h-[1.5rem] text-sm font-semibold ${isError ? 'text-coralDeep' : 'text-teal'}`;
+    }
+
+    function populateTeachers(names) {
+      const sorted = [...names].sort((a, b) => a.localeCompare(b));
+      select.innerHTML = '<option value="">Knock knock! Who\'s there?</option>';
+      sorted.forEach((name) => {
         const option = document.createElement('option');
         option.value = name;
         option.textContent = name;
         select.appendChild(option);
       });
+    }
 
-    const COLLECTION_PAGE = 'collection.html';
-    const THANK_YOU_PAGE = 'thank-you.html';
-    void THANK_YOU_PAGE;
+    async function loadTeachers() {
+      if (!hasAnonKey()) {
+        populateTeachers(fallbackTeacherNames);
+        setHelper('Local list loaded.');
+        return;
+      }
 
-    enterButton.addEventListener('click', () => {
+      try {
+        const response = await fetch(
+          `${SUPABASE_URL}/rest/v1/thp_teacher_voters?select=teacher_name&active=eq.true&order=teacher_name.asc`,
+          { headers: apiHeaders() }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Teacher load failed: ${response.status}`);
+        }
+
+        const rows = await response.json();
+        const names = rows.map((row) => row.teacher_name).filter(Boolean);
+        if (!names.length) throw new Error('No teacher rows returned.');
+        populateTeachers(names);
+        setHelper('');
+      } catch (error) {
+        console.error(error);
+        populateTeachers(fallbackTeacherNames);
+        setHelper('Using fallback list.', true);
+      }
+    }
+
+    async function getLatestTeacherSession(teacherName) {
+      const url = new URL(`${SUPABASE_URL}/rest/v1/thp_vote_sessions`);
+      url.searchParams.set('select', 'id,votes_used,max_votes,completed,started_at');
+      url.searchParams.set('voter_type', 'eq.teacher');
+      url.searchParams.set('teacher_name', `eq.${teacherName}`);
+      url.searchParams.set('order', 'started_at.desc');
+      url.searchParams.set('limit', '1');
+
+      const response = await fetch(url.toString(), { headers: apiHeaders() });
+      if (!response.ok) throw new Error(`Session lookup failed: ${response.status}`);
+      const rows = await response.json();
+      return rows[0] || null;
+    }
+
+    async function createTeacherSession(teacherName) {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/thp_vote_sessions`, {
+        method: 'POST',
+        headers: {
+          ...apiHeaders(true),
+          Prefer: 'return=representation'
+        },
+        body: JSON.stringify({
+          voter_type: 'teacher',
+          teacher_name: teacherName,
+          votes_used: 0,
+          max_votes: 25,
+          completed: false
+        })
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(`Session create failed: ${response.status} ${message}`);
+      }
+
+      const rows = await response.json();
+      return rows[0];
+    }
+
+    function storeSession({ teacherName, sessionRow }) {
+      const votesUsed = Number(sessionRow.votes_used || 0);
+      const maxVotes = Number(sessionRow.max_votes || 25);
+      const completed = Boolean(sessionRow.completed) || votesUsed >= maxVotes;
+
+      sessionStorage.setItem('thp_voter', JSON.stringify({
+        voterType: 'teacher',
+        voterId: teacherName,
+        displayName: teacherName,
+        sessionId: sessionRow.id,
+        maxVotes,
+        votesUsed,
+        completed,
+        loginAt: new Date().toISOString()
+      }));
+
+      return completed;
+    }
+
+    async function handleEnter() {
       const selectedName = select.value.trim();
 
       if (!selectedName) {
-        helperText.textContent = 'Pick your name before entering the collection.';
+        setHelper('Pick your name first.', true);
         select.focus();
         return;
       }
 
-      helperText.textContent = '';
+      enterButton.disabled = true;
+      setHelper('Loading...');
 
-      sessionStorage.setItem('thp_voter', JSON.stringify({
-        voterType: 'teacher',
-        voterId: selectedName,
-        displayName: selectedName,
-        maxVotes: 25,
-        votesUsed: 0,
-        completed: false,
-        loginAt: new Date().toISOString()
-      }));
+      try {
+        if (!hasAnonKey()) {
+          sessionStorage.setItem('thp_voter', JSON.stringify({
+            voterType: 'teacher',
+            voterId: selectedName,
+            displayName: selectedName,
+            sessionId: null,
+            maxVotes: 25,
+            votesUsed: 0,
+            completed: false,
+            loginAt: new Date().toISOString()
+          }));
+          window.location.href = COLLECTION_PAGE;
+          return;
+        }
 
-      window.location.href = COLLECTION_PAGE;
+        let sessionRow = await getLatestTeacherSession(selectedName);
+        if (!sessionRow) sessionRow = await createTeacherSession(selectedName);
+
+        const completed = storeSession({ teacherName: selectedName, sessionRow });
+        window.location.href = completed ? LEADERBOARD_PAGE : COLLECTION_PAGE;
+      } catch (error) {
+        console.error(error);
+        setHelper('Could not start session.', true);
+        enterButton.disabled = false;
+      }
+    }
+
+    enterButton.addEventListener('click', handleEnter);
+    select.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') handleEnter();
     });
+
+    loadTeachers();
   </script>
 </body>
-</html>
+</html>EOF
