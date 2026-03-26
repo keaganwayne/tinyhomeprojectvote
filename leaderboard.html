@@ -131,29 +131,7 @@
       background: var(--accent, #026a61);
     }
 
-    .emblem::before,
-    .emblem::after {
-      content: '';
-      position: absolute;
-      border-radius: 999px;
-      opacity: 0.28;
-    }
-
-    .emblem::before {
-      width: 72%;
-      height: 72%;
-      top: -10%;
-      right: -8%;
-      background: rgba(255,255,255,0.34);
-    }
-
-    .emblem::after {
-      width: 46%;
-      height: 46%;
-      bottom: 8%;
-      left: 10%;
-      background: rgba(255,255,255,0.18);
-    }
+  
 
     .score-number {
       font-variant-numeric: tabular-nums;
@@ -237,7 +215,7 @@
 
   <script>
     const SUPABASE_URL = 'https://trtwmxdtedqltjvzqdvu.supabase.co';
-    const SUPABASE_ANON_KEY = 'PASTE_YOUR_SUPABASE_ANON_KEY_HERE';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRydHdteGR0ZWRxbHRqdnpxZHZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NTAwMTMsImV4cCI6MjA4ODIyNjAxM30.xgNPvo3JzKdvbGxRagQ53TUEgfPMkute0vFv70qmK_0';
     const SUPABASE_REST_BASE = `${SUPABASE_URL}/rest/v1`;
     const REFRESH_MS = 10000;
 
@@ -469,7 +447,9 @@
     function updateBoardMeta(rows) {
       boardNameEl.textContent = currentBoard === 'teacher' ? 'Teachers' : 'Students';
       houseCountEl.textContent = rows.length;
-      boardVotesEl.textContent = rows.reduce((sum, row) => sum + row.matchups, 0);
+      boardVotesEl.textContent = Math.floor(
+  rows.reduce((sum, row) => sum + row.matchups, 0) / 2
+);
 
       teacherToggle.classList.toggle('is-active', currentBoard === 'teacher');
       studentToggle.classList.toggle('is-active', currentBoard === 'student');
@@ -501,7 +481,7 @@
         const id = String(row.groupId);
         const colors = colorForGroup(row);
         const rank = index + 1;
-        const provisional = row.matchups < 8;
+        const provisional = row.matchups < 4;
         const bar = progressBarWidth(row.rating, minRating, maxRating);
         const score = row.score.toFixed(1);
 
