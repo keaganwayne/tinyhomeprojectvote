@@ -182,17 +182,27 @@
         </div>
       </header>
 
-      <section class="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-        <div>
-          <div class="display-font groovy-shadow text-[3rem] text-teal sm:text-[4.25rem] lg:text-[5.5rem]">House</div>
-          <div class="display-font text-[2.8rem] text-coralDeep sm:text-[4rem] lg:text-[5.2rem]">Leaderboard</div>
-        </div>
+<section class="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+  <div>
+    <div class="display-font groovy-shadow text-[3rem] text-teal sm:text-[4.25rem] lg:text-[5.5rem]">House</div>
+    <div class="display-font text-[2.8rem] text-coralDeep sm:text-[4rem] lg:text-[5.2rem]">Leaderboard</div>
+  </div>
 
-        <div class="flex flex-wrap items-center gap-3 rounded-[2rem] border border-white/80 bg-white/70 p-2 shadow-soft backdrop-blur">
-          <button id="teacherToggle" class="board-toggle rounded-full px-5 py-3 text-sm font-extrabold uppercase tracking-[0.2em] text-teal">Teachers</button>
-          <button id="studentToggle" class="board-toggle rounded-full px-5 py-3 text-sm font-extrabold uppercase tracking-[0.2em] text-teal">Students</button>
-        </div>
-      </section>
+  <div class="grid gap-3">
+    <div class="flex flex-wrap items-center gap-3 rounded-[2rem] border border-white/80 bg-white/70 p-2 shadow-soft backdrop-blur">
+      <button id="teacherToggle" class="board-toggle rounded-full px-5 py-3 text-sm font-extrabold uppercase tracking-[0.2em] text-teal">Teachers</button>
+      <button id="studentToggle" class="board-toggle rounded-full px-5 py-3 text-sm font-extrabold uppercase tracking-[0.2em] text-teal">Students</button>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2 rounded-[2rem] border border-white/80 bg-white/70 p-2 shadow-soft backdrop-blur">
+      <button id="classAllToggle" class="board-toggle rounded-full px-4 py-2 text-xs font-extrabold uppercase tracking-[0.2em] text-teal">All</button>
+      <button id="class61Toggle" class="board-toggle rounded-full px-4 py-2 text-xs font-extrabold uppercase tracking-[0.2em] text-teal">61B</button>
+      <button id="class62Toggle" class="board-toggle rounded-full px-4 py-2 text-xs font-extrabold uppercase tracking-[0.2em] text-teal">62B</button>
+      <button id="class63Toggle" class="board-toggle rounded-full px-4 py-2 text-xs font-extrabold uppercase tracking-[0.2em] text-teal">63B</button>
+      <button id="class64Toggle" class="board-toggle rounded-full px-4 py-2 text-xs font-extrabold uppercase tracking-[0.2em] text-teal">64B</button>
+    </div>
+  </div>
+</section>
 
       <section class="mb-8 grid gap-4 md:grid-cols-3">
         <div class="rounded-[2rem] border border-white/80 bg-white/72 px-5 py-5 shadow-soft backdrop-blur">
@@ -387,7 +397,14 @@
     const teacherToggle = document.getElementById('teacherToggle');
     const studentToggle = document.getElementById('studentToggle');
 
+    const classAllToggle = document.getElementById('classAllToggle');
+    const class61Toggle = document.getElementById('class61Toggle');
+    const class62Toggle = document.getElementById('class62Toggle');
+    const class63Toggle = document.getElementById('class63Toggle');
+    const class64Toggle = document.getElementById('class64Toggle');
+
     let currentBoard = 'teacher';
+    let currentClassFilter = 'ALL';
     let boardProfiles = fallbackBoardProfiles();
 
     const sessionVoter = safeParse(sessionStorage.getItem('thp_voter'), null);
@@ -445,22 +462,38 @@
     let lastSignature = '';
 
     function updateBoardMeta(rows) {
-      boardNameEl.textContent = currentBoard === 'teacher' ? 'Teachers' : 'Students';
+      const boardLabel = currentBoard === 'teacher' ? 'Teachers' : 'Students';
+        boardNameEl.textContent = currentClassFilter === 'ALL'
+          ? boardLabel
+          : `${boardLabel} · ${currentClassFilter}`;
       houseCountEl.textContent = rows.length;
-      boardVotesEl.textContent = Math.floor(
-  rows.reduce((sum, row) => sum + row.matchups, 0) / 2
-);
+      const visibleMatchups = rows.reduce((sum, row) => sum + row.matchups, 0);
+boardVotesEl.textContent = currentClassFilter === 'ALL'
+  ? Math.floor(visibleMatchups / 2)
+  : visibleMatchups;
 
       teacherToggle.classList.toggle('is-active', currentBoard === 'teacher');
       studentToggle.classList.toggle('is-active', currentBoard === 'student');
+      classAllToggle.classList.toggle('is-active', currentClassFilter === 'ALL');
+      class61Toggle.classList.toggle('is-active', currentClassFilter === '61B');
+      class62Toggle.classList.toggle('is-active', currentClassFilter === '62B');
+      class63Toggle.classList.toggle('is-active', currentClassFilter === '63B');
+      class64Toggle.classList.toggle('is-active', currentClassFilter === '64B');
+
     }
 
     function signatureForRows(rows) {
       return JSON.stringify(rows.map((row) => [row.groupId, row.rating, row.matchups]));
     }
 
+
+    function filteredProfiles() {
+  if (currentClassFilter === 'ALL') return boardProfiles;
+  return boardProfiles.filter((row) => row.className === currentClassFilter);
+}
+
     function renderBoard(force = false) {
-      const rows = buildRows(currentBoard, boardProfiles);
+      const rows = buildRows(currentBoard, filteredProfiles());
       updateBoardMeta(rows);
 
       const signature = signatureForRows(rows);
@@ -552,6 +585,31 @@
       currentBoard = 'student';
       renderBoard(true);
     });
+
+    classAllToggle.addEventListener('click', () => {
+  currentClassFilter = 'ALL';
+  renderBoard(true);
+});
+
+class61Toggle.addEventListener('click', () => {
+  currentClassFilter = '61B';
+  renderBoard(true);
+});
+
+class62Toggle.addEventListener('click', () => {
+  currentClassFilter = '62B';
+  renderBoard(true);
+});
+
+class63Toggle.addEventListener('click', () => {
+  currentClassFilter = '63B';
+  renderBoard(true);
+});
+
+class64Toggle.addEventListener('click', () => {
+  currentClassFilter = '64B';
+  renderBoard(true);
+});
 
     renderBoard(true);
     refreshBoardData(true);
