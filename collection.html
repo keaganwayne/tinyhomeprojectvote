@@ -411,23 +411,6 @@
       opacity: 1;
     }
 
-    .severity-track {
-      position: relative;
-      overflow: hidden;
-      background: linear-gradient(90deg, rgba(159, 232, 213, 0.9), rgba(238, 234, 212, 0.92), rgba(244, 179, 167, 0.94));
-    }
-
-    .severity-knob {
-      position: absolute;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      transition: left 400ms cubic-bezier(.22,.61,.36,1);
-    }
-
-    .severity-knob .core {
-      box-shadow: 0 0 0 4px rgba(255,255,255,0.72), 0 10px 20px rgba(2, 106, 97, 0.20);
-    }
-
     .vs-pulse {
       animation: vsPulse 620ms ease;
     }
@@ -546,25 +529,6 @@
       </div>
     </section>
 
-    <section class="mx-auto mt-8 max-w-3xl rounded-5xl border border-white/55 bg-fog/84 px-6 py-7 shadow-card backdrop-blur-xl sm:mt-10 sm:px-8">
-      <div class="text-center">
-        <p class="text-xs font-extrabold uppercase tracking-[0.34em] text-teal/80 sm:text-sm">Overall Vibe Severity</p>
-      </div>
-      <div class="mt-6">
-        <div class="severity-track relative h-8 rounded-full">
-          <div class="severity-knob" id="severityKnob" style="left: 50%;">
-            <div class="core flex h-12 w-12 items-center justify-center rounded-full bg-teal text-white">
-              <span class="material-symbols-outlined text-xl">swap_vert</span>
-            </div>
-          </div>
-        </div>
-        <div class="mt-4 flex items-center justify-between px-2 text-xs font-extrabold uppercase tracking-[0.22em] text-ink/45 sm:text-sm">
-          <span>Chill</span>
-          <span id="severityLabel" class="text-teal">Even</span>
-          <span>Gnarly</span>
-        </div>
-      </div>
-    </section>
   </main>
 
   <script>
@@ -603,8 +567,6 @@
     const rightCard = document.getElementById('rightCard');
     const voteFlash = document.getElementById('voteFlash');
     const battleStage = document.getElementById('battleStage');
-    const severityKnob = document.getElementById('severityKnob');
-    const severityLabel = document.getElementById('severityLabel');
     const vsBadge = document.getElementById('vsBadge');
     const votesChip = document.getElementById('votesChip');
     const voterChip = document.getElementById('voterChip');
@@ -1179,7 +1141,6 @@ function persistProgress() {
         leftCard.innerHTML = loadingCardMarkup();
         rightCard.innerHTML = loadingCardMarkup();
       }
-      updateSeverity(pair.left, pair.right);
       await hydratePair(pair);
       app.topDownOpen.left = false;
       app.topDownOpen.right = false;
@@ -1269,24 +1230,6 @@ function persistProgress() {
         })
         .catch(() => queuedPair);
       return app.preloadPromise;
-    }
-
-    function severityMeta(left, right) {
-      const leftRating = app.ratings[left.groupId].rating;
-      const rightRating = app.ratings[right.groupId].rating;
-      const expectancy = expectedScore(leftRating, rightRating);
-      const severity = Math.round(100 * 2 * Math.abs(expectancy - 0.5));
-      let label = 'Even';
-      if (severity >= 75) label = 'Ferocious';
-      else if (severity >= 50) label = 'Charged';
-      else if (severity >= 25) label = 'Spicy';
-      return { severity, label };
-    }
-
-    function updateSeverity(left, right) {
-      const { severity, label } = severityMeta(left, right);
-      severityKnob.style.left = `${severity}%`;
-      severityLabel.textContent = label;
     }
 
     function updateDots(side, activeIndex) {
