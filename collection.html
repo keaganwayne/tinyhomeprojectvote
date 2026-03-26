@@ -572,12 +572,9 @@
     const voterChip = document.getElementById('voterChip');
     const completionOverlay = document.getElementById('completionOverlay');
     const completionLeaderboardButton = document.getElementById('completionLeaderboardButton');
-    const AVAILABLE_GROUP_IDS = new Set([
-  64501, 64502, 64503, 64504, 64505, 64506, 64507
-]);
-    const playableGroups = groups.filter(group => AVAILABLE_GROUP_IDS.has(group.groupId));
+    const playableGroups = groups.slice();
     const STORAGE_PUBLIC_BASE = 'https://trtwmxdtedqltjvzqdvu.supabase.co/storage/v1/object/public/thp-media';
-    const MAX_IMAGE_SCAN = 20;
+    const MAX_IMAGE_SCAN = 30;
     const TOP_DOWN_FILENAMES = ['top-down.jpg', 'top-down.jpeg', 'top-down.png', 'top-down.webp'];
 
     const SUPABASE_URL = 'https://trtwmxdtedqltjvzqdvu.supabase.co';
@@ -650,58 +647,6 @@ async function fetchSessionProgress(voter) {
   };
 }
 
-async function updateSessionProgress(votesUsed, completed) {
-  if (!hasAnonKey() || !app.voter.sessionId) return null;
-
-  const response = await fetch(
-    `${SUPABASE_REST_BASE}/thp_vote_sessions?id=eq.${encodeURIComponent(app.voter.sessionId)}`,
-    {
-      method: 'PATCH',
-      headers: supabaseHeaders('return=representation'),
-      body: JSON.stringify({
-        votes_used: votesUsed,
-        completed,
-        completed_at: completed ? new Date().toISOString() : null
-      })
-    }
-  );
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Session update failed: ${text}`);
-  }
-
-  const rows = await response.json();
-  return rows?.[0] || null;
-}
-
-async function insertVoteRow({ leftGroupId, rightGroupId, chosenGroupId, eloDelta }) {
-  if (!hasAnonKey() || !app.voter.sessionId) return null;
-
-  const payload = {
-    session_id: app.voter.sessionId,
-    voter_type: app.voter.voterType,
-    teacher_name: app.voter.voterType === 'teacher' ? app.voter.displayName : null,
-    student_id: app.voter.voterType === 'student' ? Number(app.voter.voterId) || null : null,
-    left_groupid: leftGroupId,
-    right_groupid: rightGroupId,
-    chosen_groupid: chosenGroupId,
-    elo_delta: eloDelta
-  };
-
-  const response = await fetch(`${SUPABASE_REST_BASE}/thp_pairwise_votes`, {
-    method: 'POST',
-    headers: supabaseHeaders('return=minimal'),
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Vote insert failed: ${text}`);
-  }
-
-  return true;
-}
     function safeParse(json, fallback) {
       try {
         return JSON.parse(json);
@@ -711,24 +656,18 @@ async function insertVoteRow({ leftGroupId, rightGroupId, chosenGroupId, eloDelt
     }
 
     function loadVoter() {
-      const fallback = {
-        voterType: 'teacher',
-        voterId: 'demo-teacher',
-        displayName: 'Demo Teacher',
-        maxVotes: 25,
-        votesUsed: 0,
-        completed: false
-      };
-      const voter = safeParse(sessionStorage.getItem('thp_voter'), fallback) || fallback;
-      voter.maxVotes = Number(voter.maxVotes) || 25;
-      voter.votesUsed = Number(voter.votesUsed) || 0;
-      voter.completed = Boolean(voter.completed);
-      return voter;
-    }
+  const voter = safeParse(sessionStorage.getItem('thp_voter'), null);
 
-    function progressKey(voter) {
-      return `thp_vote_progress::${voter.voterType}::${voter.voterId}`;
-    }
+  if (!voter || !voter.voterType || !voter.sessionId) {
+    window.location.href = 'teacher-login.html';
+    throw new Error('No valid voter session found.');
+  }
+
+  voter.maxVotes = Number(voter.maxVotes) || 25;
+  voter.votesUsed = Number(voter.votesUsed) || 0;
+  voter.completed = Boolean(voter.completed);
+  return voter;
+}
 
     function ratingsKey(voter) {
       return `thp_rankings::${voter.voterType}`;
@@ -793,13 +732,49 @@ function persistProgress() {
   syncProgressUI();
 }
 
-    function loadRatings(voter) {
-      return safeParse(localStorage.getItem(ratingsKey(voter)), initialRatings()) || initialRatings();
-    }
+    async function loadRatings(voter) {
+  const fallback = initialRatings();
+
+  if (!hasAnonKey()) return fallback;
+
+  try {
+    const select = voter.voterType === 'student'
+      ? 'groupid,student_elo,student_votes_count'
+      : 'groupid,teacher_elo,teacher_votes_count';
+
+    const response = await fetch(
+      `${SUPABASE_REST_BASE}/thp_group_profiles?select=${select}&active=eq.true`,
+      {
+        method: 'GET',
+        headers: supabaseHeaders('return=representation')
+      }
+    );
+
+    if (!response.ok) return fallback;
+
+    const rows = await response.json();
+    rows.forEach((row) => {
+      const id = Number(row.groupid);
+      if (!fallback[id]) return;
+
+      if (voter.voterType === 'student') {
+        fallback[id].rating = Number(row.student_elo) || 1500;
+        fallback[id].comparisons = Number(row.student_votes_count) || 0;
+      } else {
+        fallback[id].rating = Number(row.teacher_elo) || 1500;
+        fallback[id].comparisons = Number(row.teacher_votes_count) || 0;
+      }
+    });
+
+    return fallback;
+  } catch {
+    return fallback;
+  }
+}
 
     function persistRatings() {
-      localStorage.setItem(ratingsKey(app.voter), JSON.stringify(app.ratings));
-    }
+  // no-op now; shared Elo lives in Supabase
+}
 
     function syncProgressUI() {
       votesChip.textContent = `${app.progress.votesUsed} / ${app.progress.maxVotes}`;
@@ -902,8 +877,9 @@ function persistProgress() {
         for (let index = 1; index <= MAX_IMAGE_SCAN; index += 1) {
           const imageUrl = buildImageUrl(group, index);
           const exists = await resourceExists(imageUrl);
-          if (!exists) break;
-          media.images.push(imageUrl);
+          if (exists) {
+            media.images.push(imageUrl);
+          }
         }
 
         for (const filename of TOP_DOWN_FILENAMES) {
@@ -1136,22 +1112,29 @@ function persistProgress() {
     }
 
     async function renderPair(pair) {
-      const pairWarm = Boolean(app.mediaCache[pair.left.groupId] && app.mediaCache[pair.right.groupId]);
-      if (!pairWarm) {
-        leftCard.innerHTML = loadingCardMarkup();
-        rightCard.innerHTML = loadingCardMarkup();
-      }
-      await hydratePair(pair);
-      app.topDownOpen.left = false;
-      app.topDownOpen.right = false;
-      app.carousel.left.total = Math.max(mediaStateFor(pair.left).images.length, 1);
-      app.carousel.right.total = Math.max(mediaStateFor(pair.right).images.length, 1);
-      app.carousel.left.index = Math.min(app.carousel.left.index, app.carousel.left.total - 1);
-      app.carousel.right.index = Math.min(app.carousel.right.index, app.carousel.right.total - 1);
-      leftCard.innerHTML = cardMarkup('Left', pair.left);
-      rightCard.innerHTML = cardMarkup('Right', pair.right);
-      bindCardEvents();
-    }
+  if (!pair || pair.left.groupId === pair.right.groupId) {
+    console.error('Invalid matchup: same house on both sides.', pair);
+    pair = chooseQueuedPair(app.currentPair);
+  }
+
+  const pairWarm = Boolean(app.mediaCache[pair.left.groupId] && app.mediaCache[pair.right.groupId]);
+
+  if (!pairWarm) {
+    leftCard.innerHTML = loadingCardMarkup();
+    rightCard.innerHTML = loadingCardMarkup();
+  }
+
+  await hydratePair(pair);
+  app.topDownOpen.left = false;
+  app.topDownOpen.right = false;
+  app.carousel.left.total = Math.max(mediaStateFor(pair.left).images.length, 1);
+  app.carousel.right.total = Math.max(mediaStateFor(pair.right).images.length, 1);
+  app.carousel.left.index = Math.min(app.carousel.left.index, app.carousel.left.total - 1);
+  app.carousel.right.index = Math.min(app.carousel.right.index, app.carousel.right.total - 1);
+  leftCard.innerHTML = cardMarkup('Left', pair.left);
+  rightCard.innerHTML = cardMarkup('Right', pair.right);
+  bindCardEvents();
+}
 
     function expectedScore(ratingA, ratingB) {
       return 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
@@ -1199,8 +1182,13 @@ function persistProgress() {
         if (!pickPool.length) continue;
 
         const rival = pickPool[Math.floor(Math.random() * pickPool.length)].group;
+        if (!rival || rival.groupId === anchor.groupId) continue;
+
         const leftFirst = Math.random() > 0.5;
         const pair = leftFirst ? { left: anchor, right: rival } : { left: rival, right: anchor };
+
+        if (pair.left.groupId === pair.right.groupId) continue;
+
         if (markSeen) app.seenPairs.add(pairKey(pair.left, pair.right));
         return pair;
       }
@@ -1214,8 +1202,15 @@ function persistProgress() {
       const avoidKeys = new Set();
       if (currentPair) avoidKeys.add(pairKey(currentPair.left, currentPair.right));
       if (app.nextPair) avoidKeys.add(pairKey(app.nextPair.left, app.nextPair.right));
-      return choosePair({ avoidKeys, markSeen: true });
-    }
+
+      let pair = choosePair({ avoidKeys, markSeen: true });
+
+      if (pair.left.groupId === pair.right.groupId) {
+        pair = choosePair({ avoidKeys, markSeen: true });
+      }
+
+      return pair;
+}
 
     function queueNextPair(preselectedPair = null) {
       const queuedPair = preselectedPair || chooseQueuedPair(app.currentPair);
@@ -1321,24 +1316,21 @@ function persistProgress() {
       });
     }
 
- function updateRatings(winnerGroup, loserGroup) {
+function updateRatingsFromRpcResult(result, winnerGroup, loserGroup) {
+  if (!result) return;
+
   const winner = app.ratings[winnerGroup.groupId];
   const loser = app.ratings[loserGroup.groupId];
-  const expectedWinner = expectedScore(winner.rating, loser.rating);
-  const kBase = 20;
-  const uncertainty = 1 + 0.6 / Math.sqrt(Math.min(winner.comparisons, loser.comparisons) + 1);
-  const severityFactor = 1 + 0.35 * (2 * Math.abs(expectedWinner - 0.5));
-  const delta = kBase * uncertainty * severityFactor * (1 - expectedWinner);
 
-  winner.rating = Math.round((winner.rating + delta) * 10) / 10;
-  loser.rating = Math.round((loser.rating - delta) * 10) / 10;
-  winner.wins += 1;
-  loser.losses += 1;
-  winner.comparisons += 1;
-  loser.comparisons += 1;
-  persistRatings();
+  if (winner) {
+    winner.rating = Number(result.winner_rating) || winner.rating;
+    winner.comparisons = Number(result.winner_votes_count) || winner.comparisons;
+  }
 
-  return Math.round(delta * 1000) / 1000;
+  if (loser) {
+    loser.rating = Number(result.loser_rating) || loser.rating;
+    loser.comparisons = Number(result.loser_votes_count) || loser.comparisons;
+  }
 }
 
     function animateIntoView(direction) {
@@ -1360,6 +1352,34 @@ function persistProgress() {
         }, 440);
       });
     }
+async function applyVoteToSupabase({ leftGroupId, rightGroupId, chosenGroupId }) {
+  if (!hasAnonKey() || !app.voter.sessionId) {
+    throw new Error('No valid Supabase voting session found.');
+  }
+
+  const payload = {
+    p_session_id: app.voter.sessionId,
+    p_voter_type: app.voter.voterType,
+    p_teacher_name: app.voter.voterType === 'teacher' ? app.voter.displayName : null,
+    p_student_id: app.voter.voterType === 'student' ? Number(app.voter.studentId || app.voter.voterId) : null,
+    p_left_groupid: leftGroupId,
+    p_right_groupid: rightGroupId,
+    p_chosen_groupid: chosenGroupId
+  };
+
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/thp_apply_vote`, {
+    method: 'POST',
+    headers: supabaseHeaders('return=representation'),
+    body: JSON.stringify(payload)
+  });
+
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`Vote apply failed: ${text}`);
+  }
+
+  return text ? JSON.parse(text) : null;
+}
 
 function castVote(side) {
   if (app.isAnimating || app.progress.completed) return;
@@ -1388,24 +1408,30 @@ function castVote(side) {
   leftCard.classList.add(swipeClass);
   rightCard.classList.add(swipeClass);
 
-  const eloDelta = updateRatings(winnerGroup, loserGroup);
-  const nextVotesUsed = app.progress.votesUsed + 1;
-  const nextCompleted = nextVotesUsed >= app.progress.maxVotes;
-
-  app.progress.votesUsed = nextVotesUsed;
-  app.progress.completed = nextCompleted;
-  persistProgress();
-
-  const savePromise = Promise.all([
-    insertVoteRow({
-      leftGroupId: app.currentPair.left.groupId,
-      rightGroupId: app.currentPair.right.groupId,
-      chosenGroupId: winnerGroup.groupId,
-      eloDelta
-    }),
-    updateSessionProgress(nextVotesUsed, nextCompleted)
-  ]).catch((error) => {
+  const savePromise = applyVoteToSupabase({
+    leftGroupId: app.currentPair.left.groupId,
+    rightGroupId: app.currentPair.right.groupId,
+    chosenGroupId: winnerGroup.groupId
+  }).then((result) => {
+    if (result) {
+      app.progress.votesUsed = Number(result.votes_used) || app.progress.votesUsed;
+      app.progress.maxVotes = Number(result.max_votes) || app.progress.maxVotes;
+      app.progress.completed = Boolean(result.completed);
+      updateRatingsFromRpcResult(result, winnerGroup, loserGroup);
+      persistProgress();
+    }
+    return result;
+  }).catch(async (error) => {
     console.error('Vote save failed.', error);
+    alert(error.message || 'Vote save failed.');
+    app.progress = await loadProgress(app.voter);
+    app.ratings = await loadRatings(app.voter);
+    persistProgress();
+    app.isAnimating = false;
+    battleStage.classList.remove('is-animating');
+    leftCard.classList.remove('swipe-left', 'swipe-right', 'is-chosen', 'is-dimmed');
+    rightCard.classList.remove('swipe-left', 'swipe-right', 'is-chosen', 'is-dimmed');
+    return null;
   });
 
   setTimeout(async () => {
@@ -1413,8 +1439,10 @@ function castVote(side) {
     app.carousel.left = { index: 0, manual: false, total: 1 };
     app.carousel.right = { index: 0, manual: false, total: 1 };
 
+    const result = await savePromise;
+    if (!result) return;
+
     if (app.progress.completed) {
-      await savePromise;
       completionOverlay.classList.add('is-visible');
       app.isAnimating = false;
       app.nextPair = null;
@@ -1431,8 +1459,6 @@ function castVote(side) {
     await renderPair(app.currentPair);
     animateIntoView(side);
     queueNextPair();
-
-    await savePromise;
   }, 620);
 }
 
@@ -1445,7 +1471,7 @@ function castVote(side) {
 
 async function init() {
   app.voter = loadVoter();
-  app.ratings = loadRatings(app.voter);
+  app.ratings = await loadRatings(app.voter);
   app.progress = await loadProgress(app.voter);
   syncProgressUI();
 
