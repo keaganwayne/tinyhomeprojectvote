@@ -655,6 +655,14 @@ async function fetchSessionProgress(voter) {
       }
     }
 
+    
+    function withTimeout(promise, ms, fallback = null) {
+  return Promise.race([
+    promise,
+    new Promise(resolve => setTimeout(() => resolve(fallback), ms))
+  ]);
+}
+
     function loadVoter() {
   const voter = safeParse(sessionStorage.getItem('thp_voter'), null);
 
@@ -1111,29 +1119,52 @@ function persistProgress() {
       `;
     }
 
-    async function renderPair(pair) {
+async function renderPair(pair) {
   if (!pair || pair.left.groupId === pair.right.groupId) {
     console.error('Invalid matchup: same house on both sides.', pair);
     pair = chooseQueuedPair(app.currentPair);
   }
 
-  const pairWarm = Boolean(app.mediaCache[pair.left.groupId] && app.mediaCache[pair.right.groupId]);
+  app.currentPair = pair;
 
-  if (!pairWarm) {
-    leftCard.innerHTML = loadingCardMarkup();
-    rightCard.innerHTML = loadingCardMarkup();
-  }
+  const leftMedia = app.mediaCache[pair.left.groupId] || {
+    videoUrl: null,
+    images: [],
+    topDownUrl: null
+  };
 
-  await hydratePair(pair);
+  const rightMedia = app.mediaCache[pair.right.groupId] || {
+    videoUrl: null,
+    images: [],
+    topDownUrl: null
+  };
+
+  app.mediaCache[pair.left.groupId] = leftMedia;
+  app.mediaCache[pair.right.groupId] = rightMedia;
+
   app.topDownOpen.left = false;
   app.topDownOpen.right = false;
-  app.carousel.left.total = Math.max(mediaStateFor(pair.left).images.length, 1);
-  app.carousel.right.total = Math.max(mediaStateFor(pair.right).images.length, 1);
+
+  app.carousel.left.total = Math.max(leftMedia.images.length, 1);
+  app.carousel.right.total = Math.max(rightMedia.images.length, 1);
   app.carousel.left.index = Math.min(app.carousel.left.index, app.carousel.left.total - 1);
   app.carousel.right.index = Math.min(app.carousel.right.index, app.carousel.right.total - 1);
+
   leftCard.innerHTML = cardMarkup('Left', pair.left);
   rightCard.innerHTML = cardMarkup('Right', pair.right);
   bindCardEvents();
+
+  // full media load happens after the cards are already visible
+  hydratePair(pair).then(() => {
+    app.carousel.left.total = Math.max(mediaStateFor(pair.left).images.length, 1);
+    app.carousel.right.total = Math.max(mediaStateFor(pair.right).images.length, 1);
+
+    leftCard.innerHTML = cardMarkup('Left', pair.left);
+    rightCard.innerHTML = cardMarkup('Right', pair.right);
+    bindCardEvents();
+  }).catch((error) => {
+    console.error('Background media hydration failed.', error);
+  });
 }
 
     function expectedScore(ratingA, ratingB) {
@@ -1469,6 +1500,35 @@ function castVote(side) {
       });
     }
 
+async function loadInitialMediaForGroup(group) {
+  const cached = app.mediaCache[group.groupId];
+  if (cached) return cached;
+
+  const media = {
+    videoUrl: null,
+    images: [],
+    topDownUrl: null
+  };
+
+  const videoUrl = buildVideoUrl(group);
+  const hasVideo = await withTimeout(resourceExists(videoUrl), 1200, false);
+  if (hasVideo) {
+    media.videoUrl = videoUrl;
+  }
+
+  // only scan a few images for first paint
+  for (let index = 1; index <= 5; index += 1) {
+    const imageUrl = buildImageUrl(group, index);
+    const exists = await withTimeout(resourceExists(imageUrl), 500, false);
+    if (exists) {
+      media.images.push(imageUrl);
+    }
+  }
+
+  app.mediaCache[group.groupId] = media;
+  return media;
+}
+
 async function init() {
   app.voter = loadVoter();
   app.ratings = await loadRatings(app.voter);
@@ -1476,7 +1536,7 @@ async function init() {
   syncProgressUI();
 
   if (playableGroups.length < 2) {
-    throw new Error('Upload at least two groups before opening the collection page.');
+    throw new Error('At least two groups are required.');
   }
 
   if (app.progress.completed || app.progress.votesUsed >= app.progress.maxVotes) {
@@ -1488,16 +1548,32 @@ async function init() {
   }
 
   app.currentPair = choosePair();
-  const initialQueuedPair = chooseQueuedPair(app.currentPair);
 
-  await preloadInitialPairWithProgress(app.currentPair);
-  queueNextPair(initialQueuedPair);
+  setBootProgress(6, 'Finding the first matchup...');
 
+  const [leftMedia, rightMedia] = await Promise.all([
+    withTimeout(loadInitialMediaForGroup(app.currentPair.left), 2000, {
+      videoUrl: null,
+      images: [],
+      topDownUrl: null
+    }),
+    withTimeout(loadInitialMediaForGroup(app.currentPair.right), 2000, {
+      videoUrl: null,
+      images: [],
+      topDownUrl: null
+    })
+  ]);
+
+  app.mediaCache[app.currentPair.left.groupId] = leftMedia;
+  app.mediaCache[app.currentPair.right.groupId] = rightMedia;
+
+  setBootProgress(70, 'Almost ready...');
   await renderPair(app.currentPair);
 
-  setTimeout(() => {
-    hideBootOverlay();
-  }, 180);
+  setBootProgress(100, 'Ready');
+  hideBootOverlay();
+
+  queueNextPair();
 }
 
     completionLeaderboardButton.addEventListener('click', () => {
