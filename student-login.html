@@ -167,43 +167,133 @@
     </div>
   </main>
 
-  <script>
-    const COLLECTION_PAGE = 'collection.html';
+<script>
+  const SUPABASE_URL = 'https://trtwmxdtedqltjvzqdvu.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRydHdteGR0ZWRxbHRqdnpxZHZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NTAwMTMsImV4cCI6MjA4ODIyNjAxM30.xgNPvo3JzKdvbGxRagQ53TUEgfPMkute0vFv70qmK_0';
+  const SUPABASE_REST_BASE = `${SUPABASE_URL}/rest/v1`;
+  const COLLECTION_PAGE = 'collection.html';
 
-    const form = document.getElementById('studentLoginForm');
-    const codeInput = document.getElementById('studentCode');
-    const helperText = document.getElementById('helperText');
+  const form = document.getElementById('studentLoginForm');
+  const codeInput = document.getElementById('studentCode');
+  const helperText = document.getElementById('helperText');
+  const enterButton = document.getElementById('enterButton');
 
-    codeInput.addEventListener('input', () => {
-      const digitsOnly = codeInput.value.replace(/\D/g, '').slice(0, 4);
-      codeInput.value = digitsOnly;
-      if (helperText.textContent) helperText.textContent = '';
+  function hasAnonKey() {
+    return Boolean(SUPABASE_ANON_KEY && SUPABASE_ANON_KEY.trim().length > 20 && !SUPABASE_ANON_KEY.includes('PASTE_YOUR'));
+  }
+
+  function apiHeaders(prefer = 'return=representation') {
+    return {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json',
+      Prefer: prefer
+    };
+  }
+
+  codeInput.addEventListener('input', () => {
+    const digitsOnly = codeInput.value.replace(/\D/g, '').slice(0, 4);
+    codeInput.value = digitsOnly;
+    if (helperText.textContent) helperText.textContent = '';
+  });
+
+  async function findStudentByCode(code) {
+    if (!hasAnonKey()) {
+      throw new Error('Missing Supabase anon key.');
+    }
+
+    // CHANGE THESE COLUMN NAMES IF YOUR STUDENTS TABLE USES DIFFERENT ONES
+    const url = new URL(`${SUPABASE_REST_BASE}/students`);
+    url.searchParams.set('select', 'StudentID,StudentName,Code,Active');
+    url.searchParams.set('Code', `eq.${code}`);
+    url.searchParams.set('Active', 'eq.true');
+    url.searchParams.set('limit', '1');
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+      }
     });
 
-    form.addEventListener('submit', (event) => {
-      event.preventDefault();
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Student lookup failed: ${text}`);
+    }
 
-      const enteredCode = codeInput.value.replace(/\D/g, '').trim();
+    const rows = await response.json();
+    return rows[0] || null;
+  }
 
-      if (enteredCode.length !== 4) {
-        helperText.textContent = 'Enter your 4-digit tracker code.';
+  async function createStudentVoteSession(student) {
+    const response = await fetch(`${SUPABASE_REST_BASE}/thp_vote_sessions`, {
+      method: 'POST',
+      headers: apiHeaders('return=representation'),
+      body: JSON.stringify({
+        voter_type: 'student',
+        student_id: Number(student.StudentID),
+        max_votes: 25,
+        votes_used: 0,
+        completed: false
+      })
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Session creation failed: ${text}`);
+    }
+
+    const rows = await response.json();
+    return rows[0];
+  }
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const enteredCode = codeInput.value.replace(/\D/g, '').trim();
+
+    if (enteredCode.length !== 4) {
+      helperText.textContent = 'Enter your 4-digit tracker code.';
+      codeInput.focus();
+      return;
+    }
+
+    enterButton.disabled = true;
+    helperText.textContent = 'Checking code...';
+
+    try {
+      const student = await findStudentByCode(enteredCode);
+
+      if (!student) {
+        helperText.textContent = 'Code not found.';
+        enterButton.disabled = false;
         codeInput.focus();
         return;
       }
 
+      const session = await createStudentVoteSession(student);
+
       sessionStorage.setItem('thp_voter', JSON.stringify({
         voterType: 'student',
-        voterId: enteredCode,
-        displayName: enteredCode,
+        voterId: String(student.StudentID),
+        studentId: Number(student.StudentID),
+        displayName: student.StudentName || enteredCode,
         loginCode: enteredCode,
-        maxVotes: 25,
-        votesUsed: 0,
-        completed: false,
+        sessionId: session.id,
+        maxVotes: Number(session.max_votes) || 25,
+        votesUsed: Number(session.votes_used) || 0,
+        completed: Boolean(session.completed),
         loginAt: new Date().toISOString()
       }));
 
       window.location.href = COLLECTION_PAGE;
-    });
-  </script>
+    } catch (error) {
+      console.error(error);
+      helperText.textContent = error.message || 'Could not sign in.';
+      enterButton.disabled = false;
+    }
+  });
+</script>
 </body>
 </html>
