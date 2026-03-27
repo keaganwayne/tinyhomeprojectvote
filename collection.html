@@ -1399,49 +1399,32 @@ async function applyVoteToSupabase({ leftGroupId, rightGroupId, chosenGroupId })
 }
 
 function castVote(side) {
-if (app.isAnimating || app.progress.completed) return;
+  if (app.isAnimating || app.progress.completed) return;
 
-const winnerGroup = side === 'left' ? app.currentPair.left : app.currentPair.right;
-const loserGroup = side === 'left' ? app.currentPair.right : app.currentPair.left;
-const swipeClass = side === 'left' ? 'swipe-left' : 'swipe-right';
+  const winnerGroup = side === 'left' ? app.currentPair.left : app.currentPair.right;
+  const loserGroup = side === 'left' ? app.currentPair.right : app.currentPair.left;
+  const swipeClass = side === 'left' ? 'swipe-left' : 'swipe-right';
 
-app.isAnimating = true;
-vsBadge.classList.add('vs-pulse');
-setTimeout(() => vsBadge.classList.remove('vs-pulse'), 620);
+  app.isAnimating = true;
+  vsBadge.classList.add('vs-pulse');
+  setTimeout(() => vsBadge.classList.remove('vs-pulse'), 620);
 
-voteFlash.classList.remove('active');
-void voteFlash.offsetWidth;
-voteFlash.classList.add('active');
+  voteFlash.classList.remove('active');
+  void voteFlash.offsetWidth;
+  voteFlash.classList.add('active');
 
-if (side === 'left') {
-leftCard.classList.add('is-chosen');
-rightCard.classList.add('is-dimmed');
-} else {
-rightCard.classList.add('is-chosen');
-leftCard.classList.add('is-dimmed');
-}
+  if (side === 'left') {
+    leftCard.classList.add('is-chosen');
+    rightCard.classList.add('is-dimmed');
+  } else {
+    rightCard.classList.add('is-chosen');
+    leftCard.classList.add('is-dimmed');
+  }
 
-battleStage.classList.add('is-animating');
-leftCard.classList.add(swipeClass);
-rightCard.classList.add(swipeClass);
+  battleStage.classList.add('is-animating');
+  leftCard.classList.add(swipeClass);
+  rightCard.classList.add(swipeClass);
 
-  const eloDelta = updateRatings(winnerGroup, loserGroup);
-  const nextVotesUsed = app.progress.votesUsed + 1;
-  const nextCompleted = nextVotesUsed >= app.progress.maxVotes;
-
-  app.progress.votesUsed = nextVotesUsed;
-  app.progress.completed = nextCompleted;
-  persistProgress();
-
-  const savePromise = Promise.all([
-    insertVoteRow({
-      leftGroupId: app.currentPair.left.groupId,
-      rightGroupId: app.currentPair.right.groupId,
-      chosenGroupId: winnerGroup.groupId,
-      eloDelta
-    }),
-    updateSessionProgress(nextVotesUsed, nextCompleted)
-  ]).catch((error) => {
   const savePromise = applyVoteToSupabase({
     leftGroupId: app.currentPair.left.groupId,
     rightGroupId: app.currentPair.right.groupId,
@@ -1456,7 +1439,7 @@ rightCard.classList.add(swipeClass);
     }
     return result;
   }).catch(async (error) => {
-console.error('Vote save failed.', error);
+    console.error('Vote save failed.', error);
     alert(error.message || 'Vote save failed.');
     app.progress = await loadProgress(app.voter);
     app.ratings = await loadRatings(app.voter);
@@ -1466,98 +1449,34 @@ console.error('Vote save failed.', error);
     leftCard.classList.remove('swipe-left', 'swipe-right', 'is-chosen', 'is-dimmed');
     rightCard.classList.remove('swipe-left', 'swipe-right', 'is-chosen', 'is-dimmed');
     return null;
-});
+  });
 
-setTimeout(async () => {
-battleStage.classList.remove('is-animating');
-app.carousel.left = { index: 0, manual: false, total: 1 };
-app.carousel.right = { index: 0, manual: false, total: 1 };
+  setTimeout(async () => {
+    battleStage.classList.remove('is-animating');
+    app.carousel.left = { index: 0, manual: false, total: 1 };
+    app.carousel.right = { index: 0, manual: false, total: 1 };
 
     const result = await savePromise;
     if (!result) return;
 
-if (app.progress.completed) {
-      await savePromise;
-completionOverlay.classList.add('is-visible');
-app.isAnimating = false;
-app.nextPair = null;
-app.nextPairReady = false;
-app.preloadPromise = null;
-return;
-}
+    if (app.progress.completed) {
+      completionOverlay.classList.add('is-visible');
+      app.isAnimating = false;
+      app.nextPair = null;
+      app.nextPairReady = false;
+      app.preloadPromise = null;
+      return;
+    }
 
-const queuedPair = app.nextPair || chooseQueuedPair(app.currentPair);
-app.currentPair = queuedPair;
-app.nextPair = null;
-app.nextPairReady = false;
+    const queuedPair = app.nextPair || chooseQueuedPair(app.currentPair);
+    app.currentPair = queuedPair;
+    app.nextPair = null;
+    app.nextPairReady = false;
 
-await renderPair(app.currentPair);
-animateIntoView(side);
-queueNextPair();
-
-    await savePromise;
-}, 620);
-}
-
-function tickAutoCarousel() {
-if (app.isAnimating || app.progress.completed) return;
-['left', 'right'].forEach((side) => {
-if (!app.carousel[side].manual) moveCarousel(side, 1, false);
-});
-}
-
-async function init() {
-  app.voter = loadVoter();
-  app.ratings = await loadRatings(app.voter);
-  app.progress = await loadProgress(app.voter);
-  syncProgressUI();
-
-  if (playableGroups.length < 2) {
-    throw new Error('At least two groups are required.');
-  }
-
-  if (app.progress.completed || app.progress.votesUsed >= app.progress.maxVotes) {
-    app.progress.completed = true;
-    persistProgress();
-    completionOverlay.classList.add('is-visible');
-    hideBootOverlay();
-    return;
-  }
-
-  app.currentPair = choosePair();
-
-  setBootProgress(6, 'Finding the first matchup...');
-
-  const [leftMedia, rightMedia] = await Promise.all([
-    withTimeout(loadInitialMediaForGroup(app.currentPair.left), 2000, {
-      videoUrl: null,
-      images: [],
-      topDownUrl: null
-    }),
-    withTimeout(loadInitialMediaForGroup(app.currentPair.right), 2000, {
-      videoUrl: null,
-      images: [],
-      topDownUrl: null
-    })
-  ]);
-
-  app.mediaCache[app.currentPair.left.groupId] = leftMedia;
-  app.mediaCache[app.currentPair.right.groupId] = rightMedia;
-
-  setBootProgress(70, 'Almost ready...');
-  await renderPair(app.currentPair);
-
-  setBootProgress(100, 'Ready');
-  hideBootOverlay();
-
-  queueNextPair();
-  }
-
-await renderPair(app.currentPair);
-
-setTimeout(() => {
-hideBootOverlay();
-}, 180);
+    await renderPair(app.currentPair);
+    animateIntoView(side);
+    queueNextPair();
+  }, 620);
 }
 
 completionLeaderboardButton.addEventListener('click', () => {
