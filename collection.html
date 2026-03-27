@@ -835,13 +835,7 @@ async function loadMediaForGroup(group) {
       media.videoUrl = videoUrl;
     }
 
-    for (let index = 1; index <= MAX_IMAGE_SCAN; index += 1) {
-      const imageUrl = buildImageUrl(group, index);
-      const exists = await resourceExists(imageUrl);
-      if (exists) {
-        media.images.push(imageUrl);
-      }
-    }
+media.images = await scanImagesForGroup(group, MAX_IMAGE_SCAN, 3);
 
     for (const filename of TOP_DOWN_FILENAMES) {
       const topDownUrl = buildTopDownUrl(group, filename);
@@ -1078,6 +1072,31 @@ function withTimeout(promise, ms, fallback = null) {
   ]);
 }
 
+async function scanImagesForGroup(group, maxScan = MAX_IMAGE_SCAN, missLimit = 3) {
+  const images = [];
+  let missStreak = 0;
+  let foundAny = false;
+
+  for (let index = 1; index <= maxScan; index += 1) {
+    const imageUrl = buildImageUrl(group, index);
+    const exists = await resourceExists(imageUrl);
+
+    if (exists) {
+      images.push(imageUrl);
+      foundAny = true;
+      missStreak = 0;
+    } else {
+      missStreak += 1;
+
+      // once we've already found real images, stop after a few misses in a row
+      if (foundAny && missStreak >= missLimit) {
+        break;
+      }
+    }
+  }
+  return images;
+}
+
 async function loadInitialMediaForGroup(group) {
   const cached = app.mediaCache[group.groupId];
   if (cached) return cached;
@@ -1094,13 +1113,11 @@ async function loadInitialMediaForGroup(group) {
     media.videoUrl = videoUrl;
   }
 
-  for (let index = 1; index <= 3; index += 1) {
-    const imageUrl = buildImageUrl(group, index);
-    const exists = await withTimeout(resourceExists(imageUrl), 500, false);
-    if (exists) {
-      media.images.push(imageUrl);
-    }
-  }
+ media.images = await withTimeout(
+  scanImagesForGroup(group, 6, 2),
+  1800,
+  []
+);
 
   app.mediaCache[group.groupId] = media;
   return media;
