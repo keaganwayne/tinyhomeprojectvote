@@ -1479,6 +1479,63 @@ function castVote(side) {
   }, 620);
 }
 
+function tickAutoCarousel() {
+  if (app.isAnimating || app.progress.completed) return;
+
+  ['left', 'right'].forEach((side) => {
+    if (!app.carousel[side].manual) {
+      moveCarousel(side, 1, false);
+    }
+  });
+}
+
+async function init() {
+  app.voter = loadVoter();
+  app.ratings = await loadRatings(app.voter);
+  app.progress = await loadProgress(app.voter);
+  syncProgressUI();
+
+  if (playableGroups.length < 2) {
+    throw new Error('At least two groups are required.');
+  }
+
+  if (app.progress.completed || app.progress.votesUsed >= app.progress.maxVotes) {
+    app.progress.completed = true;
+    persistProgress();
+    completionOverlay.classList.add('is-visible');
+    hideBootOverlay();
+    return;
+  }
+
+  app.currentPair = choosePair();
+
+  setBootProgress(6, 'Finding the first matchup...');
+
+  const [leftMedia, rightMedia] = await Promise.all([
+    withTimeout(loadInitialMediaForGroup(app.currentPair.left), 2000, {
+      videoUrl: null,
+      images: [],
+      topDownUrl: null
+    }),
+    withTimeout(loadInitialMediaForGroup(app.currentPair.right), 2000, {
+      videoUrl: null,
+      images: [],
+      topDownUrl: null
+    })
+  ]);
+
+  app.mediaCache[app.currentPair.left.groupId] = leftMedia;
+  app.mediaCache[app.currentPair.right.groupId] = rightMedia;
+
+  setBootProgress(70, 'Almost ready...');
+  await renderPair(app.currentPair);
+
+  setBootProgress(100, 'Ready');
+  hideBootOverlay();
+
+  queueNextPair();
+}
+
 completionLeaderboardButton.addEventListener('click', () => {
 window.location.href = 'leaderboard.html';
 });
