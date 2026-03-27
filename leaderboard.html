@@ -408,9 +408,11 @@
     let boardProfiles = fallbackBoardProfiles();
 
     const sessionVoter = safeParse(sessionStorage.getItem('thp_voter'), null);
-    if (sessionVoter && sessionVoter.voterType === 'student') {
-      currentBoard = 'student';
-    }
+const isStudentViewer = Boolean(sessionVoter && sessionVoter.voterType === 'student');
+
+if (isStudentViewer) {
+  currentBoard = 'student';
+}
 
     
     function renderRowInner(row, rank, colors, provisional, bar, score) {
@@ -493,8 +495,8 @@ boardVotesEl.textContent = currentClassFilter === 'ALL'
 }
 
     function renderBoard(force = false) {
-      const rows = buildRows(currentBoard, filteredProfiles());
-      updateBoardMeta(rows);
+    const allRows = buildRows(currentBoard, filteredProfiles());
+const rows = isStudentViewer ? allRows.slice(0, 5) : allRows;
 
       const signature = signatureForRows(rows);
       if (!force && signature === lastSignature) return;
