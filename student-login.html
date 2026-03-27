@@ -179,7 +179,11 @@
   const enterButton = document.getElementById('enterButton');
 
   function hasAnonKey() {
-    return Boolean(SUPABASE_ANON_KEY && SUPABASE_ANON_KEY.trim().length > 20 && !SUPABASE_ANON_KEY.includes('PASTE_YOUR'));
+    return Boolean(
+      SUPABASE_ANON_KEY &&
+      SUPABASE_ANON_KEY.trim().length > 20 &&
+      !SUPABASE_ANON_KEY.includes('PASTE_YOUR')
+    );
   }
 
   function apiHeaders(prefer = 'return=representation') {
@@ -202,10 +206,9 @@
       throw new Error('Missing Supabase anon key.');
     }
 
-    // CHANGE THESE COLUMN NAMES IF YOUR STUDENTS TABLE USES DIFFERENT ONES
     const url = new URL(`${SUPABASE_REST_BASE}/students`);
-    url.searchParams.set('select', 'StudentID,StudentName,Code,Active');
-    url.searchParams.set('Code', `eq.${code}`);
+    url.searchParams.set('select', 'StudentID,Name,LoginCode,Active');
+    url.searchParams.set('LoginCode', `eq.${code}`);
     url.searchParams.set('Active', 'eq.true');
     url.searchParams.set('limit', '1');
 
@@ -259,6 +262,11 @@
       return;
     }
 
+    if (!hasAnonKey()) {
+      helperText.textContent = 'Add your Supabase anon key first.';
+      return;
+    }
+
     enterButton.disabled = true;
     helperText.textContent = 'Checking code...';
 
@@ -278,7 +286,7 @@
         voterType: 'student',
         voterId: String(student.StudentID),
         studentId: Number(student.StudentID),
-        displayName: student.StudentName || enteredCode,
+        displayName: student.Name || enteredCode,
         loginCode: enteredCode,
         sessionId: session.id,
         maxVotes: Number(session.max_votes) || 25,
