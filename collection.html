@@ -819,7 +819,8 @@ return false;
 }
 
 async function loadMediaForGroup(group) {
-  if (app.mediaCache[group.groupId]) return app.mediaCache[group.groupId];
+  const cached = app.mediaCache[group.groupId];
+  if (cached && cached.isPartial !== true) return cached;
   if (app.mediaPromises[group.groupId]) return app.mediaPromises[group.groupId];
 
   app.mediaPromises[group.groupId] = (async () => {
@@ -827,7 +828,8 @@ async function loadMediaForGroup(group) {
       folder: groupFolder(group),
       videoUrl: null,
       images: [],
-      topDownUrl: null
+      topDownUrl: null,
+      isPartial: false
     };
 
     const videoUrl = buildVideoUrl(group);
@@ -1104,7 +1106,8 @@ async function loadInitialMediaForGroup(group) {
   const media = {
     videoUrl: null,
     images: [],
-    topDownUrl: null
+    topDownUrl: null,
+    isPartial: true
   };
 
   const videoUrl = buildVideoUrl(group);
@@ -1113,9 +1116,9 @@ async function loadInitialMediaForGroup(group) {
     media.videoUrl = videoUrl;
   }
 
- media.images = await withTimeout(
-  scanImagesForGroup(group, 6, 2),
-  1800,
+media.images = await withTimeout(
+  scanImagesForGroup(group, 10, 3),
+  2500,
   []
 );
 
