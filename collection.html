@@ -572,14 +572,9 @@ const votesChip = document.getElementById('votesChip');
 const voterChip = document.getElementById('voterChip');
 const completionOverlay = document.getElementById('completionOverlay');
 const completionLeaderboardButton = document.getElementById('completionLeaderboardButton');
-    const AVAILABLE_GROUP_IDS = new Set([
-  64501, 64502, 64503, 64504, 64505, 64506, 64507
-]);
-    const playableGroups = groups.filter(group => AVAILABLE_GROUP_IDS.has(group.groupId));
-    const playableGroups = groups.slice();
+const playableGroups = groups.slice();
 const STORAGE_PUBLIC_BASE = 'https://trtwmxdtedqltjvzqdvu.supabase.co/storage/v1/object/public/thp-media';
-    const MAX_IMAGE_SCAN = 20;
-    const MAX_IMAGE_SCAN = 30;
+const MAX_IMAGE_SCAN = 30;
 const TOP_DOWN_FILENAMES = ['top-down.jpg', 'top-down.jpeg', 'top-down.png', 'top-down.webp'];
 
 const SUPABASE_URL = 'https://trtwmxdtedqltjvzqdvu.supabase.co';
@@ -652,58 +647,7 @@ maxVotes: Number(row.max_votes) || 25
 };
 }
 
-async function updateSessionProgress(votesUsed, completed) {
-  if (!hasAnonKey() || !app.voter.sessionId) return null;
 
-  const response = await fetch(
-    `${SUPABASE_REST_BASE}/thp_vote_sessions?id=eq.${encodeURIComponent(app.voter.sessionId)}`,
-    {
-      method: 'PATCH',
-      headers: supabaseHeaders('return=representation'),
-      body: JSON.stringify({
-        votes_used: votesUsed,
-        completed,
-        completed_at: completed ? new Date().toISOString() : null
-      })
-    }
-  );
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Session update failed: ${text}`);
-  }
-
-  const rows = await response.json();
-  return rows?.[0] || null;
-}
-
-async function insertVoteRow({ leftGroupId, rightGroupId, chosenGroupId, eloDelta }) {
-  if (!hasAnonKey() || !app.voter.sessionId) return null;
-
-  const payload = {
-    session_id: app.voter.sessionId,
-    voter_type: app.voter.voterType,
-    teacher_name: app.voter.voterType === 'teacher' ? app.voter.displayName : null,
-    student_id: app.voter.voterType === 'student' ? Number(app.voter.voterId) || null : null,
-    left_groupid: leftGroupId,
-    right_groupid: rightGroupId,
-    chosen_groupid: chosenGroupId,
-    elo_delta: eloDelta
-  };
-
-  const response = await fetch(`${SUPABASE_REST_BASE}/thp_pairwise_votes`, {
-    method: 'POST',
-    headers: supabaseHeaders('return=minimal'),
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Vote insert failed: ${text}`);
-  }
-
-  return true;
-}
 function safeParse(json, fallback) {
 try {
 return JSON.parse(json);
@@ -713,25 +657,9 @@ return fallback;
 }
 
 function loadVoter() {
-      const fallback = {
-        voterType: 'teacher',
-        voterId: 'demo-teacher',
-        displayName: 'Demo Teacher',
-        maxVotes: 25,
-        votesUsed: 0,
-        completed: false
-      };
-      const voter = safeParse(sessionStorage.getItem('thp_voter'), fallback) || fallback;
-      voter.maxVotes = Number(voter.maxVotes) || 25;
-      voter.votesUsed = Number(voter.votesUsed) || 0;
-      voter.completed = Boolean(voter.completed);
-      return voter;
-    }
   const voter = safeParse(sessionStorage.getItem('thp_voter'), null);
 
-    function progressKey(voter) {
-      return `thp_vote_progress::${voter.voterType}::${voter.voterId}`;
-    }
+
   if (!voter || !voter.voterType || !voter.sessionId) {
     window.location.href = 'teacher-login.html';
     throw new Error('No valid voter session found.');
@@ -759,57 +687,12 @@ async function loadProgress(voter) {
 return fetchSessionProgress(voter);
 }
 
-async function preloadInitialPairWithProgress(pair) {
-setBootProgress(6, 'Finding the first matchup...');
-
-const [leftMedia, rightMedia] = await Promise.all([
-loadMediaForGroup(pair.left),
-loadMediaForGroup(pair.right)
-]);
-
-const tasks = [];
-
-[leftMedia, rightMedia].forEach((media) => {
-if (media.videoUrl) {
-tasks.push(() => preloadVideo(media.videoUrl));
-}
-media.images.forEach((url) => {
-tasks.push(() => preloadImage(url));
-});
-});
-
-if (!tasks.length) {
-setBootProgress(100, 'Ready');
-return;
-}
-
-let done = 0;
-const total = tasks.length;
-
-setBootProgress(12, 'Loading photos and video...');
-
-await Promise.allSettled(
-tasks.map((task) =>
-task().finally(() => {
-done += 1;
-const percent = 12 + Math.round((done / total) * 88);
-setBootProgress(percent, `Loading ${done} of ${total} assets...`);
-})
-)
-);
-
-setBootProgress(100, 'Ready');
-}
-
 function persistProgress() {
 syncVoterSessionStorage();
 syncProgressUI();
 }
 
-    function loadRatings(voter) {
-      return safeParse(localStorage.getItem(ratingsKey(voter)), initialRatings()) || initialRatings();
-    }
-    async function loadRatings(voter) {
+async function loadRatings(voter) {
   const fallback = initialRatings();
 
   if (!hasAnonKey()) return fallback;
@@ -850,10 +733,9 @@ syncProgressUI();
 }
 
 function persistRatings() {
-      localStorage.setItem(ratingsKey(app.voter), JSON.stringify(app.ratings));
-    }
-  // no-op now; shared Elo lives in Supabase
+  // shared Elo lives in Supabase
 }
+
 
 function syncProgressUI() {
 votesChip.textContent = `${app.progress.votesUsed} / ${app.progress.maxVotes}`;
@@ -937,46 +819,44 @@ return false;
 }
 
 async function loadMediaForGroup(group) {
-if (app.mediaCache[group.groupId]) return app.mediaCache[group.groupId];
-if (app.mediaPromises[group.groupId]) return app.mediaPromises[group.groupId];
+  if (app.mediaCache[group.groupId]) return app.mediaCache[group.groupId];
+  if (app.mediaPromises[group.groupId]) return app.mediaPromises[group.groupId];
 
-app.mediaPromises[group.groupId] = (async () => {
-const media = {
-folder: groupFolder(group),
-videoUrl: null,
-images: [],
-topDownUrl: null
-};
+  app.mediaPromises[group.groupId] = (async () => {
+    const media = {
+      folder: groupFolder(group),
+      videoUrl: null,
+      images: [],
+      topDownUrl: null
+    };
 
-const videoUrl = buildVideoUrl(group);
-if (await resourceExists(videoUrl)) {
-media.videoUrl = videoUrl;
-}
+    const videoUrl = buildVideoUrl(group);
+    if (await resourceExists(videoUrl)) {
+      media.videoUrl = videoUrl;
+    }
 
-for (let index = 1; index <= MAX_IMAGE_SCAN; index += 1) {
-const imageUrl = buildImageUrl(group, index);
-const exists = await resourceExists(imageUrl);
-          if (!exists) break;
-          media.images.push(imageUrl);
-          if (exists) {
-            media.images.push(imageUrl);
-          }
-}
+    for (let index = 1; index <= MAX_IMAGE_SCAN; index += 1) {
+      const imageUrl = buildImageUrl(group, index);
+      const exists = await resourceExists(imageUrl);
+      if (exists) {
+        media.images.push(imageUrl);
+      }
+    }
 
-for (const filename of TOP_DOWN_FILENAMES) {
-const topDownUrl = buildTopDownUrl(group, filename);
-if (await resourceExists(topDownUrl)) {
-media.topDownUrl = topDownUrl;
-break;
-}
-}
+    for (const filename of TOP_DOWN_FILENAMES) {
+      const topDownUrl = buildTopDownUrl(group, filename);
+      if (await resourceExists(topDownUrl)) {
+        media.topDownUrl = topDownUrl;
+        break;
+      }
+    }
 
-app.mediaCache[group.groupId] = media;
-delete app.mediaPromises[group.groupId];
-return media;
-})();
+    app.mediaCache[group.groupId] = media;
+    delete app.mediaPromises[group.groupId];
+    return media;
+  })();
 
-return app.mediaPromises[group.groupId];
+  return app.mediaPromises[group.groupId];
 }
 
 async function hydratePair(pair) {
@@ -1191,46 +1071,86 @@ return `
        </div>
      `;
 }
+function withTimeout(promise, ms, fallback = null) {
+  return Promise.race([
+    promise,
+    new Promise(resolve => setTimeout(() => resolve(fallback), ms))
+  ]);
+}
+
+async function loadInitialMediaForGroup(group) {
+  const cached = app.mediaCache[group.groupId];
+  if (cached) return cached;
+
+  const media = {
+    videoUrl: null,
+    images: [],
+    topDownUrl: null
+  };
+
+  const videoUrl = buildVideoUrl(group);
+  const hasVideo = await withTimeout(resourceExists(videoUrl), 1200, false);
+  if (hasVideo) {
+    media.videoUrl = videoUrl;
+  }
+
+  for (let index = 1; index <= 3; index += 1) {
+    const imageUrl = buildImageUrl(group, index);
+    const exists = await withTimeout(resourceExists(imageUrl), 500, false);
+    if (exists) {
+      media.images.push(imageUrl);
+    }
+  }
+
+  app.mediaCache[group.groupId] = media;
+  return media;
+}
 
 async function renderPair(pair) {
-      const pairWarm = Boolean(app.mediaCache[pair.left.groupId] && app.mediaCache[pair.right.groupId]);
-      if (!pairWarm) {
-        leftCard.innerHTML = loadingCardMarkup();
-        rightCard.innerHTML = loadingCardMarkup();
-      }
-      await hydratePair(pair);
-      app.topDownOpen.left = false;
-      app.topDownOpen.right = false;
-      app.carousel.left.total = Math.max(mediaStateFor(pair.left).images.length, 1);
-      app.carousel.right.total = Math.max(mediaStateFor(pair.right).images.length, 1);
-      app.carousel.left.index = Math.min(app.carousel.left.index, app.carousel.left.total - 1);
-      app.carousel.right.index = Math.min(app.carousel.right.index, app.carousel.right.total - 1);
-      leftCard.innerHTML = cardMarkup('Left', pair.left);
-      rightCard.innerHTML = cardMarkup('Right', pair.right);
-      bindCardEvents();
-    }
   if (!pair || pair.left.groupId === pair.right.groupId) {
     console.error('Invalid matchup: same house on both sides.', pair);
     pair = chooseQueuedPair(app.currentPair);
   }
 
-  const pairWarm = Boolean(app.mediaCache[pair.left.groupId] && app.mediaCache[pair.right.groupId]);
+  app.currentPair = pair;
 
-  if (!pairWarm) {
-    leftCard.innerHTML = loadingCardMarkup();
-    rightCard.innerHTML = loadingCardMarkup();
-  }
+  const leftMedia = app.mediaCache[pair.left.groupId] || {
+    videoUrl: null,
+    images: [],
+    topDownUrl: null
+  };
 
-  await hydratePair(pair);
+  const rightMedia = app.mediaCache[pair.right.groupId] || {
+    videoUrl: null,
+    images: [],
+    topDownUrl: null
+  };
+
+  app.mediaCache[pair.left.groupId] = leftMedia;
+  app.mediaCache[pair.right.groupId] = rightMedia;
+
   app.topDownOpen.left = false;
   app.topDownOpen.right = false;
-  app.carousel.left.total = Math.max(mediaStateFor(pair.left).images.length, 1);
-  app.carousel.right.total = Math.max(mediaStateFor(pair.right).images.length, 1);
+
+  app.carousel.left.total = Math.max(leftMedia.images.length, 1);
+  app.carousel.right.total = Math.max(rightMedia.images.length, 1);
   app.carousel.left.index = Math.min(app.carousel.left.index, app.carousel.left.total - 1);
   app.carousel.right.index = Math.min(app.carousel.right.index, app.carousel.right.total - 1);
+
   leftCard.innerHTML = cardMarkup('Left', pair.left);
   rightCard.innerHTML = cardMarkup('Right', pair.right);
   bindCardEvents();
+
+  hydratePair(pair).then(() => {
+    app.carousel.left.total = Math.max(mediaStateFor(pair.left).images.length, 1);
+    app.carousel.right.total = Math.max(mediaStateFor(pair.right).images.length, 1);
+
+    leftCard.innerHTML = cardMarkup('Left', pair.left);
+    rightCard.innerHTML = cardMarkup('Right', pair.right);
+    bindCardEvents();
+  }).catch((error) => {
+    console.error('Background media hydration failed.', error);
+  });
 }
 
 function expectedScore(ratingA, ratingB) {
@@ -1296,19 +1216,17 @@ return fallbackPair;
 }
 
 function chooseQueuedPair(currentPair = null) {
-const avoidKeys = new Set();
-if (currentPair) avoidKeys.add(pairKey(currentPair.left, currentPair.right));
-if (app.nextPair) avoidKeys.add(pairKey(app.nextPair.left, app.nextPair.right));
-      return choosePair({ avoidKeys, markSeen: true });
-    }
+  const avoidKeys = new Set();
+  if (currentPair) avoidKeys.add(pairKey(currentPair.left, currentPair.right));
+  if (app.nextPair) avoidKeys.add(pairKey(app.nextPair.left, app.nextPair.right));
 
-      let pair = choosePair({ avoidKeys, markSeen: true });
+  let pair = choosePair({ avoidKeys, markSeen: true });
 
-      if (pair.left.groupId === pair.right.groupId) {
-        pair = choosePair({ avoidKeys, markSeen: true });
-      }
+  if (pair.left.groupId === pair.right.groupId) {
+    pair = choosePair({ avoidKeys, markSeen: true });
+  }
 
-      return pair;
+  return pair;
 }
 
 function queueNextPair(preselectedPair = null) {
@@ -1415,27 +1333,11 @@ button.addEventListener('click', () => setTopDown(button.dataset.topdownClose, f
 });
 }
 
- function updateRatings(winnerGroup, loserGroup) {
 function updateRatingsFromRpcResult(result, winnerGroup, loserGroup) {
   if (!result) return;
 
-const winner = app.ratings[winnerGroup.groupId];
-const loser = app.ratings[loserGroup.groupId];
-  const expectedWinner = expectedScore(winner.rating, loser.rating);
-  const kBase = 20;
-  const uncertainty = 1 + 0.6 / Math.sqrt(Math.min(winner.comparisons, loser.comparisons) + 1);
-  const severityFactor = 1 + 0.35 * (2 * Math.abs(expectedWinner - 0.5));
-  const delta = kBase * uncertainty * severityFactor * (1 - expectedWinner);
-
-  winner.rating = Math.round((winner.rating + delta) * 10) / 10;
-  loser.rating = Math.round((loser.rating - delta) * 10) / 10;
-  winner.wins += 1;
-  loser.losses += 1;
-  winner.comparisons += 1;
-  loser.comparisons += 1;
-  persistRatings();
-
-  return Math.round(delta * 1000) / 1000;
+  const winner = app.ratings[winnerGroup.groupId];
+  const loser = app.ratings[loserGroup.groupId];
 
   if (winner) {
     winner.rating = Number(result.winner_rating) || winner.rating;
@@ -1605,29 +1507,51 @@ if (!app.carousel[side].manual) moveCarousel(side, 1, false);
 }
 
 async function init() {
-app.voter = loadVoter();
-  app.ratings = loadRatings(app.voter);
+  app.voter = loadVoter();
   app.ratings = await loadRatings(app.voter);
-app.progress = await loadProgress(app.voter);
-syncProgressUI();
+  app.progress = await loadProgress(app.voter);
+  syncProgressUI();
 
-if (playableGroups.length < 2) {
-throw new Error('Upload at least two groups before opening the collection page.');
-}
+  if (playableGroups.length < 2) {
+    throw new Error('At least two groups are required.');
+  }
 
-if (app.progress.completed || app.progress.votesUsed >= app.progress.maxVotes) {
-app.progress.completed = true;
-persistProgress();
-completionOverlay.classList.add('is-visible');
-hideBootOverlay();
-return;
-}
+  if (app.progress.completed || app.progress.votesUsed >= app.progress.maxVotes) {
+    app.progress.completed = true;
+    persistProgress();
+    completionOverlay.classList.add('is-visible');
+    hideBootOverlay();
+    return;
+  }
 
-app.currentPair = choosePair();
-const initialQueuedPair = chooseQueuedPair(app.currentPair);
+  app.currentPair = choosePair();
 
-await preloadInitialPairWithProgress(app.currentPair);
-queueNextPair(initialQueuedPair);
+  setBootProgress(6, 'Finding the first matchup...');
+
+  const [leftMedia, rightMedia] = await Promise.all([
+    withTimeout(loadInitialMediaForGroup(app.currentPair.left), 2000, {
+      videoUrl: null,
+      images: [],
+      topDownUrl: null
+    }),
+    withTimeout(loadInitialMediaForGroup(app.currentPair.right), 2000, {
+      videoUrl: null,
+      images: [],
+      topDownUrl: null
+    })
+  ]);
+
+  app.mediaCache[app.currentPair.left.groupId] = leftMedia;
+  app.mediaCache[app.currentPair.right.groupId] = rightMedia;
+
+  setBootProgress(70, 'Almost ready...');
+  await renderPair(app.currentPair);
+
+  setBootProgress(100, 'Ready');
+  hideBootOverlay();
+
+  queueNextPair();
+  }
 
 await renderPair(app.currentPair);
 
