@@ -572,14 +572,9 @@ const votesChip = document.getElementById('votesChip');
 const voterChip = document.getElementById('voterChip');
 const completionOverlay = document.getElementById('completionOverlay');
 const completionLeaderboardButton = document.getElementById('completionLeaderboardButton');
-    const AVAILABLE_GROUP_IDS = new Set([
-  64501, 64502, 64503, 64504, 64505, 64506, 64507
-]);
-    const playableGroups = groups.filter(group => AVAILABLE_GROUP_IDS.has(group.groupId));
-    const playableGroups = groups.slice();
+const playableGroups = groups.slice();
 const STORAGE_PUBLIC_BASE = 'https://trtwmxdtedqltjvzqdvu.supabase.co/storage/v1/object/public/thp-media';
-    const MAX_IMAGE_SCAN = 20;
-    const MAX_IMAGE_SCAN = 30;
+const MAX_IMAGE_SCAN = 30;
 const TOP_DOWN_FILENAMES = ['top-down.jpg', 'top-down.jpeg', 'top-down.png', 'top-down.webp'];
 
 const SUPABASE_URL = 'https://trtwmxdtedqltjvzqdvu.supabase.co';
